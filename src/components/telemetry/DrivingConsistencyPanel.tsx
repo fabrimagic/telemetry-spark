@@ -8,13 +8,17 @@
 // reads the data and decides; the engine does not diagnose.
 
 // Radar (Part 2) — overlays first-half vs second-half of the stint, one
-// metric at a time, with one axis per corner. Each axis is normalised
-// independently on its own range (combining the two halves of that zone) so
-// the chart is readable even when corners have very different physical
-// scales. Consequence (declared in the panel): the radar shows the RELATIVE
-// shape of the first-vs-second comparison, NOT absolute values; the area
-// and the distance from the centre are NOT physical quantities. Exact
-// values remain available in the tooltip and in the table below.
+// metric at a time, with one axis per corner. Since the radar shows ONE
+// metric at a time, all axes carry the same physical quantity (e.g. all
+// vMin in km/h), so they share a SINGLE scale derived from the global
+// min/max of (first.mean, second.mean) across every zone, with a small
+// padding. Consequence: on each axis the distance between the "1ª metà"
+// and "2ª metà" vertices is proportional to the REAL drift of that zone;
+// zones with very different drifts look very different on the radar.
+// Side effect (honest): slow corners and fast corners sit at different
+// radii because their absolute level is different — this is physics, not
+// a defect. The area enclosed by each polygon is NOT a physical quantity.
+// Exact values remain available in the tooltip and in the table below.
 
 import { useMemo, useState } from "react";
 import {
