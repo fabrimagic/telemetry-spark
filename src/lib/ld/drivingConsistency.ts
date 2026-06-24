@@ -28,6 +28,7 @@ import {
   buildBrakingSignature,
   metricsForLap,
   type BrakingSignatureResult,
+  type PerLapZoneEntry,
   type SignatureRow,
 } from "@/lib/ld/brakingSignature";
 import {
@@ -77,6 +78,11 @@ export interface SpatialDispersionRow {
   /** CV = std / |mean| (dimensionless). NaN when not computable. */
   vMinCV: number;
   brakePointCV: number;
+  /** Raw per-lap measured values forwarded from the SignatureRow, used by
+   *  the box-plot panel to compute REAL quartiles. Same chronological order
+   *  as BrakingSignatureResult.validLapNumbers; values are undefined when the
+   *  lap did not yield a usable sample (never interpolated). */
+  perLapValues: PerLapZoneEntry[];
 }
 
 export interface ConsistencySummary {
@@ -179,6 +185,7 @@ export function buildDrivingConsistency(
     throttleReopenStd: r.throttleReopenDist.std,
     vMinCV: cv(r.vMin.mean, r.vMin.std),
     brakePointCV: cv(r.brakePointDist.mean, r.brakePointDist.std),
+    perLapValues: r.perLapValues,
   }));
 
   // Part 2 — temporal drift first half vs second half.

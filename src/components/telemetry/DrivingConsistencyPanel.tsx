@@ -6,19 +6,18 @@
 // signature aggregated by buildBrakingSignature. No invented thresholds —
 // only sample statistics (mean, std, CV) and per-half deltas. The engineer
 // reads the data and decides; the engine does not diagnose.
-
-// Radar (Part 2) — overlays first-half vs second-half of the stint, one
-// metric at a time, with one axis per corner. Since the radar shows ONE
-// metric at a time, all axes carry the same physical quantity (e.g. all
-// vMin in km/h), so they share a SINGLE scale derived from the global
-// min/max of (first.mean, second.mean) across every zone, with a small
-// padding. Consequence: on each axis the distance between the "1ª metà"
-// and "2ª metà" vertices is proportional to the REAL drift of that zone;
-// zones with very different drifts look very different on the radar.
-// Side effect (honest): slow corners and fast corners sit at different
-// radii because their absolute level is different — this is physics, not
-// a defect. The area enclosed by each polygon is NOT a physical quantity.
-// Exact values remain available in the tooltip and in the table below.
+//
+// Part 1 graphic — per-zone BOX PLOT computed from the RAW per-lap values
+// (SignatureRow.perLapValues, propagated through SpatialDispersionRow.
+// perLapValues). Quartiles are REAL quartiles via linear interpolation
+// (same scheme as engineUsage.quantile), NOT approximations from mean/std.
+// Whisker convention: Tukey 1.5×IQR — points outside the fences are drawn
+// as outliers, never invented. Y-axis scale is SHARED across zones for the
+// selected metric so dispersion is visually comparable. When a zone has
+// fewer than ~4 valid samples the box is statistically meaningless and is
+// replaced by a strip of the raw individual points for that zone (declared
+// as "n basso" in the tooltip). If every zone has too few samples, the
+// entire view falls back to strip plots. The numeric tables below remain.
 
 import { useMemo, useState } from "react";
 import {
@@ -90,6 +89,350 @@ function deltaClass(
 function stdClass(d: MetricDrift): string {
   if (!d.available || !Number.isFinite(d.deltaStd)) return "";
   return d.deltaStd > 0 ? "text-race-red" : "";
+}
+
+/* ===================== Box-plot (Part 1) ===================== */
+
+type SpatialMetricKey = "brakePointDist" | "vMin";
+
+interface SpatialMetricSpec {
+  key: SpatialMetricKey;
+  label: string;
+  unit: string;
+  digits: number;
+}
+
+const SPATIAL_METRICS: SpatialMetricSpec[] = [
+  { key: "brakePointDist", label: "punto frenata", unit: "m", digits: 0 },
+  { key: "vMin", label: "v min", unit: "km/h", digits: 1 },
+];
+
+const MIN_N_FOR_BOX = 4;
+
+/** Linear-interpolation quantile (same scheme as engineUsage.quantile). */
+function linQuantile(sorted: number[], q: number): number {
+  const n = sorted.length;
+  if (n === 0) return NaN;
+  if (n === 1) return sorted[0];
+  const pos = (n - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  const frac = pos - lo;
+  return sorted[lo] * (1 - frac) + sorted[hi] * frac;
+}
+
+interface BoxStats {
+  n: number;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  max: number;
+  /** Tukey whisker extremes (most extreme samples within ±1.5·IQR). */
+  whiskerLo: number;
+  whiskerHi: number;
+  outliers: number[];
+  /** Raw sorted values (used when n is too small for a real box). */
+  values: number[];
+}
+
+function computeBoxStats(raw: number[]): BoxStats | null {
+  const sorted = raw.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  const q1 = linQuantile(sorted, 0.25);
+  const median = linQuantile(sorted, 0.5);
+  const q3 = linQuantile(sorted, 0.75);
+  const iqr = q3 - q1;
+  const lowerFence = q1 - 1.5 * iqr;
+  const upperFence = q3 + 1.5 * iqr;
+  const inside = sorted.filter((v) => v >= lowerFence && v <= upperFence);
+  const outliers = sorted.filter((v) => v < lowerFence || v > upperFence);
+  const whiskerLo = inside.length > 0 ? inside[0] : sorted[0];
+  const whiskerHi = inside.length > 0 ? inside[inside.length - 1] : sorted[sorted.length - 1];
+  return {
+    n: sorted.length,
+    min: sorted[0],
+    q1,
+    median,
+    q3,
+    max: sorted[sorted.length - 1],
+    whiskerLo,
+    whiskerHi,
+    outliers,
+    values: sorted,
+  };
+}
+
+interface ZoneBoxData {
+  zoneIndex: number;
+  label: string;
+  stats: BoxStats | null;
+}
+
+interface BoxTooltipState {
+  x: number;
+  y: number;
+  zone: ZoneBoxData;
+}
+
+function SpatialBoxPlot({
+  rows,
+  spec,
+}: {
+  rows: SpatialDispersionRow[];
+  spec: SpatialMetricSpec;
+}) {
+  const zoneData: ZoneBoxData[] = useMemo(
+    () =>
+      rows.map((r) => {
+        const raw = r.perLapValues
+          .map((p) => (spec.key === "vMin" ? p.vMin : p.brakePointDist))
+          .filter((v): v is number => v !== undefined && Number.isFinite(v));
+        return { zoneIndex: r.zoneIndex, label: r.label, stats: computeBoxStats(raw) };
+      }),
+    [rows, spec.key],
+  );
+
+  // Shared Y-axis range across all zones for the selected metric.
+  const allValues: number[] = [];
+  for (const z of zoneData) if (z.stats) allValues.push(...z.stats.values);
+  const dataMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+  const dataMax = allValues.length > 0 ? Math.max(...allValues) : 1;
+  let span = dataMax - dataMin;
+  if (span === 0) span = Math.max(1e-6, Math.abs(dataMax) * 0.05 + 1e-6);
+  const padY = span * 0.1;
+  const yLo = dataMin - padY;
+  const yHi = dataMax + padY;
+
+  const allLowN = zoneData.every((z) => !z.stats || z.stats.n < MIN_N_FOR_BOX);
+
+  // SVG layout
+  const W = Math.max(360, zoneData.length * 70 + 80);
+  const H = 280;
+  const padLeft = 56;
+  const padRight = 16;
+  const padTop = 14;
+  const padBottom = 36;
+  const plotW = W - padLeft - padRight;
+  const plotH = H - padTop - padBottom;
+  const colW = zoneData.length > 0 ? plotW / zoneData.length : 0;
+  const boxW = Math.min(36, colW * 0.5);
+
+  const yScale = (v: number) => padTop + (1 - (v - yLo) / (yHi - yLo)) * plotH;
+
+  const ticks: number[] = [];
+  for (let i = 0; i <= 4; i++) ticks.push(yLo + ((yHi - yLo) * i) / 4);
+
+  const [tip, setTip] = useState<BoxTooltipState | null>(null);
+  const fmtV = (v: number) =>
+    Number.isFinite(v) ? `${v.toFixed(spec.digits)} ${spec.unit}` : "n/d";
+
+  return (
+    <div className="space-y-2">
+      <div className="relative overflow-x-auto border border-ink/15 bg-card">
+        <svg width={W} height={H} className="block">
+          {ticks.map((t, i) => (
+            <g key={i}>
+              <line
+                x1={padLeft}
+                x2={W - padRight}
+                y1={yScale(t)}
+                y2={yScale(t)}
+                stroke="hsl(var(--ink) / 0.12)"
+                strokeDasharray="2 3"
+              />
+              <text
+                x={padLeft - 6}
+                y={yScale(t) + 3}
+                textAnchor="end"
+                fontFamily="var(--font-mono, monospace)"
+                fontSize={10}
+                fill="hsl(var(--muted-foreground))"
+              >
+                {t.toFixed(spec.digits)}
+              </text>
+            </g>
+          ))}
+          <text
+            x={12}
+            y={padTop + plotH / 2}
+            transform={`rotate(-90 12 ${padTop + plotH / 2})`}
+            textAnchor="middle"
+            fontFamily="var(--font-mono, monospace)"
+            fontSize={10}
+            fill="hsl(var(--muted-foreground))"
+          >
+            {spec.label} ({spec.unit})
+          </text>
+
+          {zoneData.map((z, idx) => {
+            const cx = padLeft + colW * (idx + 0.5);
+            const s = z.stats;
+            const handlers = {
+              onMouseMove: (e: React.MouseEvent<SVGGElement>) => {
+                const svgEl = e.currentTarget.ownerSVGElement as SVGSVGElement | null;
+                if (!svgEl) return;
+                const rect = svgEl.getBoundingClientRect();
+                setTip({ x: e.clientX - rect.left, y: e.clientY - rect.top, zone: z });
+              },
+              onMouseLeave: () => setTip(null),
+            };
+            if (!s) {
+              return (
+                <g key={z.zoneIndex} {...handlers}>
+                  <rect x={cx - colW / 2} y={padTop} width={colW} height={plotH} fill="transparent" />
+                  <text
+                    x={cx}
+                    y={H - padBottom + 16}
+                    textAnchor="middle"
+                    fontFamily="var(--font-mono, monospace)"
+                    fontSize={10}
+                    fill="hsl(var(--muted-foreground))"
+                  >
+                    {z.label}
+                  </text>
+                  <text
+                    x={cx}
+                    y={padTop + plotH / 2}
+                    textAnchor="middle"
+                    fontFamily="var(--font-mono, monospace)"
+                    fontSize={10}
+                    fill="hsl(var(--muted-foreground))"
+                  >
+                    n/d
+                  </text>
+                </g>
+              );
+            }
+            const isLowN = s.n < MIN_N_FOR_BOX;
+            return (
+              <g key={z.zoneIndex} {...handlers}>
+                <rect x={cx - colW / 2} y={padTop} width={colW} height={plotH} fill="transparent" />
+                {isLowN ? (
+                  <>
+                    {s.values.map((v, i) => (
+                      <circle key={i} cx={cx} cy={yScale(v)} r={3} fill="hsl(var(--ink) / 0.7)" />
+                    ))}
+                    <text
+                      x={cx}
+                      y={padTop - 2}
+                      textAnchor="middle"
+                      fontFamily="var(--font-mono, monospace)"
+                      fontSize={9}
+                      fill="hsl(var(--race-red))"
+                    >
+                      n={s.n}
+                    </text>
+                  </>
+                ) : (
+                  <>
+                    <line
+                      x1={cx}
+                      x2={cx}
+                      y1={yScale(s.whiskerLo)}
+                      y2={yScale(s.whiskerHi)}
+                      stroke="hsl(var(--ink) / 0.6)"
+                    />
+                    <line
+                      x1={cx - boxW / 3}
+                      x2={cx + boxW / 3}
+                      y1={yScale(s.whiskerHi)}
+                      y2={yScale(s.whiskerHi)}
+                      stroke="hsl(var(--ink) / 0.6)"
+                    />
+                    <line
+                      x1={cx - boxW / 3}
+                      x2={cx + boxW / 3}
+                      y1={yScale(s.whiskerLo)}
+                      y2={yScale(s.whiskerLo)}
+                      stroke="hsl(var(--ink) / 0.6)"
+                    />
+                    <rect
+                      x={cx - boxW / 2}
+                      y={yScale(s.q3)}
+                      width={boxW}
+                      height={Math.max(1, yScale(s.q1) - yScale(s.q3))}
+                      fill="hsl(var(--ink) / 0.15)"
+                      stroke="hsl(var(--ink) / 0.6)"
+                    />
+                    <line
+                      x1={cx - boxW / 2}
+                      x2={cx + boxW / 2}
+                      y1={yScale(s.median)}
+                      y2={yScale(s.median)}
+                      stroke="hsl(var(--ink))"
+                      strokeWidth={2}
+                    />
+                    {s.outliers.map((v, i) => (
+                      <circle key={i} cx={cx} cy={yScale(v)} r={2.5} fill="hsl(var(--race-red))" />
+                    ))}
+                  </>
+                )}
+                <text
+                  x={cx}
+                  y={H - padBottom + 16}
+                  textAnchor="middle"
+                  fontFamily="var(--font-mono, monospace)"
+                  fontSize={10}
+                  fill="hsl(var(--ink))"
+                >
+                  {z.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        {tip && tip.zone.stats && (
+          <div
+            style={{
+              position: "absolute",
+              left: Math.min(tip.x + 12, W - 180),
+              top: Math.max(8, tip.y - 8),
+              pointerEvents: "none",
+              background: "hsl(var(--card))",
+              border: "1px solid hsl(var(--ink) / 0.4)",
+              borderRadius: 0,
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 11,
+              padding: "6px 8px",
+              color: "hsl(var(--ink))",
+              minWidth: 160,
+            }}
+          >
+            <div className="uppercase tracking-widest text-muted-foreground">
+              {tip.zone.label} · {spec.label}
+            </div>
+            <div>
+              n giri: <span className="tabular-nums">{tip.zone.stats.n}</span>
+              {tip.zone.stats.n < MIN_N_FOR_BOX && (
+                <span className="ml-1 text-race-red">(n basso)</span>
+              )}
+            </div>
+            <div>min: <span className="tabular-nums">{fmtV(tip.zone.stats.min)}</span></div>
+            <div>Q1: <span className="tabular-nums">{fmtV(tip.zone.stats.q1)}</span></div>
+            <div>mediana: <span className="tabular-nums">{fmtV(tip.zone.stats.median)}</span></div>
+            <div>Q3: <span className="tabular-nums">{fmtV(tip.zone.stats.q3)}</span></div>
+            <div>max: <span className="tabular-nums">{fmtV(tip.zone.stats.max)}</span></div>
+            {tip.zone.stats.outliers.length > 0 && (
+              <div className="text-race-red">outlier: {tip.zone.stats.outliers.length}</div>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="font-mono text-[10px] text-muted-foreground">
+        Box plot dai valori per-giro misurati: quartili reali (interpolazione
+        lineare), scatola Q1–Q3, mediana evidenziata, baffi secondo la
+        convenzione di Tukey (1.5×IQR); i punti oltre i baffi sono outlier
+        (in rosso). Scala Y condivisa tra le zone per la metrica selezionata:
+        le dispersioni sono confrontabili a colpo d'occhio. Zone con meno di{" "}
+        {MIN_N_FOR_BOX} giri validi sono mostrate come punti grezzi (strip),
+        senza scatola: i quartili su pochi campioni sarebbero ingannevoli.
+        {allLowN && " Tutte le zone hanno pochi giri: vista a punti per tutte."}
+      </p>
+    </div>
+  );
 }
 
 /* ============================ Radar (Part 2) ============================ */
@@ -402,6 +745,10 @@ export function DrivingConsistencyPanel({
   const radarSpec =
     availableRadarMetrics.find((m) => m.key === radarMetricKey) ?? availableRadarMetrics[0];
 
+  const [spatialMetricKey, setSpatialMetricKey] = useState<SpatialMetricKey>("brakePointDist");
+  const spatialSpec =
+    SPATIAL_METRICS.find((m) => m.key === spatialMetricKey) ?? SPATIAL_METRICS[0];
+
   return (
     <div className="space-y-6">
       {/* Summary line */}
@@ -426,10 +773,29 @@ export function DrivingConsistencyPanel({
       )}
 
       {/* Part 1 — Spatial dispersion */}
-      <div className="space-y-2">
-        <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Parte 1 · Dispersione spaziale per zona (ordinata dalla meno alla più consistente)
-        </h4>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Parte 1 · Dispersione spaziale per zona (ordinata dalla meno alla più consistente)
+          </h4>
+          <div className="flex items-center gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              metrica:
+            </span>
+            {SPATIAL_METRICS.map((m) => (
+              <Button
+                key={m.key}
+                size="sm"
+                variant={spatialMetricKey === m.key ? "default" : "outline"}
+                className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                onClick={() => setSpatialMetricKey(m.key)}
+              >
+                {m.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <SpatialBoxPlot rows={spatialSorted} spec={spatialSpec} />
         <div className="overflow-x-auto border border-ink/20">
           <Table>
             <TableHeader>
@@ -613,16 +979,22 @@ export function DrivingConsistencyPanel({
       <p className="max-w-4xl border-t border-ink/15 pt-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
         Tutte le grandezze derivano da canali misurati e dalle zone ancorate al
         giro di riferimento (L{result.refLap?.lap}). Gli indici di dispersione
-        (σ, CV) sono statistiche campionarie; la deriva prima/seconda metà è
-        un'osservazione dei dati e non una diagnosi. Il{" "}
-        <span className="font-bold">radar</span> normalizza{" "}
-        <span className="font-bold">ogni asse (zona) indipendentemente</span> sul
-        range locale dei due valori (1ª + 2ª metà di quella zona) con un padding
-        del 25%: mostra quindi la <span className="font-bold">forma relativa</span>{" "}
-        del confronto, non valori assoluti. L'area racchiusa e la distanza dal
-        centro <span className="font-bold">non</span> sono grandezze fisiche; i
-        valori reali restano nel tooltip e nella tabella sottostante. Il
-        giudizio resta all'ingegnere.
+        (σ, CV) sono statistiche campionarie. Il{" "}
+        <span className="font-bold">box plot</span> della parte 1 usa{" "}
+        <span className="font-bold">quartili reali</span> sui valori per-giro
+        misurati, baffi secondo la convenzione di Tukey (1.5×IQR), outlier
+        in rosso e scala Y condivisa tra le zone per la metrica selezionata;
+        con meno di {MIN_N_FOR_BOX} giri validi la zona è rappresentata come
+        strip di punti grezzi, senza scatola. Il{" "}
+        <span className="font-bold">radar</span> della parte 2 usa una{" "}
+        <span className="font-bold">scala condivisa tra le zone</span> per la
+        metrica selezionata (min/max globale + padding 10%): la distanza tra
+        1ª e 2ª metà su ciascun asse riflette l'entità reale della deriva;
+        curve lente e veloci stanno a raggi diversi perché hanno livelli
+        assoluti diversi (è fisica, non un difetto). L'area racchiusa nel
+        radar <span className="font-bold">non</span> è una grandezza fisica.
+        I valori reali restano nei tooltip e nelle tabelle. Il giudizio resta
+        all'ingegnere.
       </p>
 
     </div>
