@@ -81,12 +81,14 @@ function findChannel(channels: Channel[], normName: string): Channel | undefined
 function pickGpsChannels(channels: Channel[]):
   | { lat: Channel; lon: Channel; source: TrackMap["source"] }
   | null {
-  const lat1 = findChannel(channels, "log gps lat");
-  const lon1 = findChannel(channels, "log gps lon");
-  if (lat1 && lon1) return { lat: lat1, lon: lon1, source: "log gps lat/lon" };
-  const lat2 = findChannel(channels, "gps latitude");
-  const lon2 = findChannel(channels, "gps longitude");
-  if (lat2 && lon2) return { lat: lat2, lon: lon2, source: "gps latitude/longitude" };
+  // Prefer the high-resolution (7-decimal) channels; fall back to the
+  // 4-decimal "log gps" channels only when the high-res pair is missing.
+  const latHi = findChannel(channels, "gps latitude");
+  const lonHi = findChannel(channels, "gps longitude");
+  if (latHi && lonHi) return { lat: latHi, lon: lonHi, source: "gps latitude/longitude" };
+  const latLo = findChannel(channels, "log gps lat");
+  const lonLo = findChannel(channels, "log gps lon");
+  if (latLo && lonLo) return { lat: latLo, lon: lonLo, source: "log gps lat/lon" };
   return null;
 }
 
