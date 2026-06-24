@@ -395,11 +395,15 @@ function buildNotExtractedList(parts: ToolsetPart[], setupPresent: boolean): str
   }
   if (setupPresent) {
     out.push(
+      "Associazione canale → bus CAN: richiede la mappatura binaria, non decodificata.",
+    );
+    out.push(
       "Mappatura binaria canale → CAN ID → bit offset → scala/offset: non decodificata. Il layout binario proprietario Cosworth in setup.binary non è documentato.",
     );
     out.push(
       "Unità certe disponibili solo per il sottoinsieme di canali con metadati display (blocchi dash:Channel).",
     );
+
   } else {
     out.push("setup.binary assente: nessuna configurazione estraibile.");
   }
