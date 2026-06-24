@@ -114,8 +114,11 @@ export async function extractEntry(
     // DEFLATE raw — supported via Web Streams in modern browsers / workers.
     if (typeof DecompressionStream === "undefined") return null;
     const raw = rawData(buffer, entry);
+    // Copy into a stand-alone ArrayBuffer so TS doesn't widen to SharedArrayBuffer.
+    const copy = new Uint8Array(raw.byteLength);
+    copy.set(raw);
     const ds = new DecompressionStream("deflate-raw");
-    const stream = new Blob([raw]).stream().pipeThrough(ds);
+    const stream = new Blob([copy]).stream().pipeThrough(ds);
     const ab = await new Response(stream).arrayBuffer();
     return new Uint8Array(ab);
   }
