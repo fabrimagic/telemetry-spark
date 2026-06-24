@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLdLoader } from "@/hooks/useLdLoader";
 import { FileDropzone } from "@/components/telemetry/FileDropzone";
 import { ChannelTable } from "@/components/telemetry/ChannelTable";
+import { SessionDebrief } from "@/components/telemetry/SessionDebrief";
 import { ToolsetSummary } from "@/components/telemetry/ToolsetSummary";
 import { Badge } from "@/components/ui/badge";
 import { exportSummaryPdf } from "@/lib/export/exportPdf";
@@ -124,23 +125,40 @@ function Index() {
               />
 
               {loader.files.map((f, i) => (
-                <PaperPanel
-                  key={`ld-${i}`}
-                  id={`ld-${i}`}
-                  eyebrow="Telemetry"
-                  title={f.fileName}
-                  meta={[
-                    { k: "Channels", v: String(f.channels.length) },
-                    { k: "Laps", v: String(f.laps.length) },
-                  ]}
-                >
-                  <ChannelTable
-                    channels={f.channels}
-                    lapCount={f.laps.length}
-                    toolsetMeta={loader.toolsets[0]?.displayMeta}
-                  />
+                <div key={`ld-wrap-${i}`} className="flex flex-col gap-6">
+                  <PaperPanel
+                    key={`ld-${i}`}
+                    id={`ld-${i}`}
+                    eyebrow="Telemetry"
+                    title={f.fileName}
+                    meta={[
+                      { k: "Channels", v: String(f.channels.length) },
+                      { k: "Laps", v: String(f.laps.length) },
+                    ]}
+                  >
+                    <ChannelTable
+                      channels={f.channels}
+                      lapCount={f.laps.length}
+                      toolsetMeta={loader.toolsets[0]?.displayMeta}
+                    />
+                  </PaperPanel>
 
-                </PaperPanel>
+                  <PaperPanel
+                    key={`debrief-${i}`}
+                    id={`debrief-${i}`}
+                    eyebrow="Analysis"
+                    title="Session Debrief"
+                    meta={[
+                      { k: "File", v: f.fileName },
+                      { k: "Laps", v: String(f.laps.length) },
+                    ]}
+                  >
+                    <SessionDebrief
+                      file={f}
+                      toolsetMeta={loader.toolsets[0]?.displayMeta}
+                    />
+                  </PaperPanel>
+                </div>
               ))}
 
               {loader.toolsets.map((t, i) => (
