@@ -979,16 +979,22 @@ export function DrivingConsistencyPanel({
       <p className="max-w-4xl border-t border-ink/15 pt-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
         Tutte le grandezze derivano da canali misurati e dalle zone ancorate al
         giro di riferimento (L{result.refLap?.lap}). Gli indici di dispersione
-        (σ, CV) sono statistiche campionarie; la deriva prima/seconda metà è
-        un'osservazione dei dati e non una diagnosi. Il{" "}
-        <span className="font-bold">radar</span> normalizza{" "}
-        <span className="font-bold">ogni asse (zona) indipendentemente</span> sul
-        range locale dei due valori (1ª + 2ª metà di quella zona) con un padding
-        del 25%: mostra quindi la <span className="font-bold">forma relativa</span>{" "}
-        del confronto, non valori assoluti. L'area racchiusa e la distanza dal
-        centro <span className="font-bold">non</span> sono grandezze fisiche; i
-        valori reali restano nel tooltip e nella tabella sottostante. Il
-        giudizio resta all'ingegnere.
+        (σ, CV) sono statistiche campionarie. Il{" "}
+        <span className="font-bold">box plot</span> della parte 1 usa{" "}
+        <span className="font-bold">quartili reali</span> sui valori per-giro
+        misurati, baffi secondo la convenzione di Tukey (1.5×IQR), outlier
+        in rosso e scala Y condivisa tra le zone per la metrica selezionata;
+        con meno di {MIN_N_FOR_BOX} giri validi la zona è rappresentata come
+        strip di punti grezzi, senza scatola. Il{" "}
+        <span className="font-bold">radar</span> della parte 2 usa una{" "}
+        <span className="font-bold">scala condivisa tra le zone</span> per la
+        metrica selezionata (min/max globale + padding 10%): la distanza tra
+        1ª e 2ª metà su ciascun asse riflette l'entità reale della deriva;
+        curve lente e veloci stanno a raggi diversi perché hanno livelli
+        assoluti diversi (è fisica, non un difetto). L'area racchiusa nel
+        radar <span className="font-bold">non</span> è una grandezza fisica.
+        I valori reali restano nei tooltip e nelle tabelle. Il giudizio resta
+        all'ingegnere.
       </p>
 
     </div>
