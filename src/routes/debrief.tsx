@@ -200,7 +200,7 @@ function DebriefPage() {
             <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
               <TableRow className="border-b border-ink/30">
                 <TH>Lap</TH>
-                <TH align="right" title="Tempo approssimato (≈ 1 s) — il tempo preciso ufficiale è nell'Overview (.ldx)">Time ≈ s</TH>
+                <TH align="right">Time ≈ s</TH>
                 {has.speed && <TH align="right">v max (km/h)</TH>}
                 {has.rpm && <TH align="right">RPM max</TH>}
                 {has.abs && <TH align="right">ABS</TH>}
@@ -778,55 +778,53 @@ function LapChannelTraces({
   );
 }
 
-/* ============ Timing verification status banner ============ */
-function fmtMs(s: number | undefined): string {
-  if (s === undefined || !Number.isFinite(s)) return "—";
-  const m = Math.floor(s / 60);
-  const r = s - m * 60;
-  return `${m}:${r.toFixed(3).padStart(6, "0")}`;
-}
+/* ============ Coherence status banner ============ */
 
-function TimingStatus({ timing }: { timing: LapTimingResult }) {
+function CoherenceStatus({ coherence }: { coherence: LapCoherence }) {
   const {
-    timingVerified,
-    status,
-    fastestFound,
-    countFound,
+    totalSegments,
+    validLaps,
+    fastestLapSession,
+    oracleFastestLap,
     oracleFastestSec,
     oracleTotalLaps,
-    decoding,
-  } = timing;
+    alignedWithOracle,
+  } = coherence;
 
-  let label: string;
-  let tone: "ok" | "warn";
-  if (timingVerified) {
-    tone = "ok";
-    const dec = decoding ? ` · codifica: ${decoding}` : "";
-    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})${dec}`;
-  } else {
-    tone = "warn";
-    const reason =
-      status === "no-channel"
-        ? "canale lap time prev assente"
-        : status === "no-oracle"
-          ? "summary .ldx mancante"
-          : status === "no-decoding"
-            ? `nessuna codifica del canale riproduce ldx ${fmtMs(oracleFastestSec)} (fastest grezzo ${fmtMs(fastestFound)})`
-            : status === "fastest-mismatch"
-              ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
-              : status === "count-mismatch"
-                ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}${decoding ? ` (codifica: ${decoding})` : ""}`
-                : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
-    label = `Tempi stimati, non verificati col beacon · ${reason}`;
-  }
+  const oracleStr =
+    oracleFastestSec !== undefined && oracleFastestLap !== undefined
+      ? `ldx: fastest L${oracleFastestLap} ${fmtLapTimePrecise(oracleFastestSec)}${oracleTotalLaps !== undefined ? `, ${oracleTotalLaps} giri` : ""}`
+      : "ldx non disponibile";
+
+  const segStr =
+    `Segmentazione Lap Number: ${totalSegments} segmenti, ${validLaps} validi` +
+    (fastestLapSession !== undefined ? `, riferimento L${fastestLapSession}` : "");
+
+  const alignedStr =
+    oracleFastestLap !== undefined
+      ? alignedWithOracle
+        ? "allineato con ldx"
+        : "non allineato con ldx"
+      : "";
+
+  const tone: "ok" | "warn" = alignedWithOracle ? "ok" : "warn";
   const cls =
     tone === "ok"
       ? "border-race-red text-race-red"
       : "border-ink/40 text-muted-foreground";
+
   return (
-    <div className={`mt-2 inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
-      {label}
+    <div className="mt-2 space-y-1">
+      <div className={`inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
+        {segStr}
+        {alignedStr ? ` · ${alignedStr}` : ""}
+        {` · ${oracleStr}`}
+      </div>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        Tempi per-giro qui sotto ≈ 1 s (da Lap Number). Il tempo preciso ufficiale è quello dell'Overview (.ldx).
+      </div>
     </div>
   );
 }
+
 
