@@ -1,5 +1,7 @@
 // Parse the small .ldx XML for session summary (Total Laps, Fastest Lap, Fastest Time).
-// Returns partial SessionMeta fields.
+// MoTeC .ldx encodes summary as: <String Id="Fastest Lap" Value="32"/>
+// (attribute-based, not text content). Earlier versions also used text nodes —
+// we try the attribute form first, then fall back to a permissive text match.
 
 export interface LdxSummary {
   totalLaps?: number;
@@ -7,30 +9,58 @@ export interface LdxSummary {
   fastestTime?: string;
 }
 
+function findAttrValue(xml: string, id: string): string | undefined {
+  // <String Id="<id>" Value="<value>"/>  (Id and Value may appear in either order)
+  const reA = new RegExp(
+    `<\\w+\\s+[^>]*Id\\s*=\\s*"${escapeRe(id)}"[^>]*Value\\s*=\\s*"([^"]*)"`,
+    "i",
+  );
+  const reB = new RegExp(
+    `<\\w+\\s+[^>]*Value\\s*=\\s*"([^"]*)"[^>]*Id\\s*=\\s*"${escapeRe(id)}"`,
+    "i",
+  );
+  const m = xml.match(reA) ?? xml.match(reB);
+  return m ? m[1].trim() : undefined;
+}
+
+function findTextContent(xml: string, id: string): string | undefined {
+  // <Tag … name="<id>">value</Tag> or <Tag>value</Tag> matched permissively.
+  const re = new RegExp(
+    `(?:name|Id)\\s*=\\s*"${escapeRe(id)}"[^>]*>\\s*([^<\\s][^<]*)`,
+    "i",
+  );
+  const m = xml.match(re);
+  return m ? m[1].trim() : undefined;
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function parseLdx(xmlText: string): LdxSummary {
   const result: LdxSummary = {};
   try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlText, "application/xml");
+    const total =
+      findAttrValue(xmlText, "Total Laps") ??
+      findTextContent(xmlText, "Total Laps");
+    const fastestLap =
+      findAttrValue(xmlText, "Fastest Lap") ??
+      findTextContent(xmlText, "Fastest Lap");
+    const fastestTime =
+      findAttrValue(xmlText, "Fastest Time") ??
+      findTextContent(xmlText, "Fastest Time");
 
-    // Multiple firmware variants — search permissively.
-    const findText = (re: RegExp) => {
-      const m = xmlText.match(re);
-      return m ? m[1] : undefined;
-    };
-
-    const total = findText(/Total\s*Laps?[^>]*>\s*([0-9]+)/i)
-      ?? doc.querySelector("[name='Total Laps']")?.textContent ?? undefined;
-    const fastestLap = findText(/Fastest\s*Lap[^>]*>\s*([0-9]+)/i)
-      ?? doc.querySelector("[name='Fastest Lap']")?.textContent ?? undefined;
-    const fastestTime = findText(/Fastest\s*Time[^>]*>\s*([0-9:.]+)/i)
-      ?? doc.querySelector("[name='Fastest Time']")?.textContent ?? undefined;
-
-    if (total) result.totalLaps = parseInt(total, 10);
-    if (fastestLap) result.fastestLap = parseInt(fastestLap, 10);
-    if (fastestTime) result.fastestTime = fastestTime.trim();
+    if (total) {
+      const n = parseInt(total, 10);
+      if (Number.isFinite(n)) result.totalLaps = n;
+    }
+    if (fastestLap) {
+      const n = parseInt(fastestLap, 10);
+      if (Number.isFinite(n)) result.fastestLap = n;
+    }
+    if (fastestTime) result.fastestTime = fastestTime;
   } catch {
-    // ignore — .ldx is optional
+    // .ldx is optional — swallow parse errors
   }
   return result;
 }
