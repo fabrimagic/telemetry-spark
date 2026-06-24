@@ -1,13 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
 import { useLdLoader } from "@/hooks/useLdLoader";
 import { FileDropzone } from "@/components/telemetry/FileDropzone";
-import { SessionBar, type ViewMode } from "@/components/telemetry/SessionBar";
-import { ChannelSidebar } from "@/components/telemetry/ChannelSidebar";
-import { ChartArea } from "@/components/telemetry/ChartArea";
 import { ChannelTable } from "@/components/telemetry/ChannelTable";
-import { GpsTrack } from "@/components/telemetry/GpsTrack";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,12 +12,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Analizzatore di telemetria MoTeC: carica file .ld/.ldx e visualizza tutti i canali nel browser, nessun upload.",
+          "Analizzatore di telemetria MoTeC: carica file .ld/.ldx e visualizza il riepilogo dei canali nel browser, nessun upload.",
       },
       { property: "og:title", content: "MoTeC Telemetry Analyzer" },
       {
         property: "og:description",
-        content: "Parsing 100% client-side di file MoTeC .ld con dashboard interattiva.",
+        content: "Parsing 100% client-side di file MoTeC .ld con riepilogo dei dati acquisiti.",
       },
     ],
   }),
@@ -31,44 +27,7 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const loader = useLdLoader();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<ViewMode>("single");
-  const [refLap, setRefLap] = useState({ fileIdx: 0, lapIdx: 0 });
-
   const primary = loader.files[0];
-  const channels = useMemo(() => primary?.channels ?? [], [primary]);
-
-  // Auto-select a useful default channel set on first load.
-  const onLoaded = (names: string[]) => {
-    if (selected.size > 0) return;
-    const defaults = ["Drive Speed", "RPM", "ecu nmot", "Throttle", "Brake"];
-    const init = new Set<string>();
-    for (const d of defaults) {
-      const found = names.find((n) => n.toLowerCase() === d.toLowerCase());
-      if (found) init.add(found);
-      if (init.size >= 3) break;
-    }
-    if (init.size === 0 && names.length > 0) init.add(names[0]);
-    setSelected(init);
-  };
-
-  // Trigger default selection once channels are available.
-  if (primary && selected.size === 0 && channels.length > 0) {
-    queueMicrotask(() => onLoaded(channels.filter((c) => !c.empty).map((c) => c.name)));
-  }
-
-  const toggle = (name: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  };
-
-  const selectedChannels = useMemo(
-    () => channels.filter((c) => selected.has(c.name)),
-    [channels, selected],
-  );
 
   if (loader.files.length === 0) {
     return (
@@ -101,42 +60,82 @@ function Index() {
     );
   }
 
+  const totalChannels = loader.files.reduce((a, f) => a + f.channels.length, 0);
+  const totalLaps = loader.files.reduce((a, f) => a + f.laps.length, 0);
+  const emptyChannels = loader.files.reduce(
+    (a, f) => a + f.channels.filter((c) => c.empty).length,
+    0,
+  );
+
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <SessionBar
-        files={loader.files}
-        mode={mode}
-        onModeChange={setMode}
-        refLap={refLap}
-        onRefLapChange={setRefLap}
-        onReset={loader.reset}
-      />
-      <div className="flex flex-1 overflow-hidden">
-        <ChannelSidebar channels={channels} selected={selected} onToggle={toggle} />
-        <main className="flex flex-1 flex-col overflow-hidden">
-          <Tabs defaultValue="charts" className="flex h-full flex-col">
-            <TabsList className="mx-4 mt-2 w-fit">
-              <TabsTrigger value="charts">Grafici</TabsTrigger>
-              <TabsTrigger value="table">Tabella canali</TabsTrigger>
-              <TabsTrigger value="gps">Mappa GPS</TabsTrigger>
-            </TabsList>
-            <TabsContent value="charts" className="flex-1 overflow-hidden">
-              <ChartArea
-                files={loader.files}
-                selected={selectedChannels}
-                mode={mode}
-                refLap={refLap}
-              />
-            </TabsContent>
-            <TabsContent value="table" className="flex-1 overflow-hidden">
-              <ChannelTable channels={channels} />
-            </TabsContent>
-            <TabsContent value="gps" className="flex-1 overflow-hidden">
-              <GpsTrack file={primary!} />
-            </TabsContent>
-          </Tabs>
-        </main>
-      </div>
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold">Riepilogo telemetria</h1>
+            <p className="text-sm text-muted-foreground">
+              Dati acquisiti dai file caricati. Nessun grafico, solo metadati e statistiche per
+              canale.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={loader.reset}>
+            Nuovo file
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+        <section className="rounded-lg border bg-card p-5">
+          <h2 className="mb-3 text-base font-semibold">Sessione</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+            <Field label="Vettura" value={primary?.meta.car} />
+            <Field label="Pista" value={primary?.meta.track} />
+            <Field label="Device" value={primary?.meta.device} />
+            <Field label="Data" value={primary?.meta.date} />
+            <Field label="Ora" value={primary?.meta.time} />
+            <Field
+              label="Giro veloce"
+              value={
+                primary?.meta.fastestLap
+                  ? `${primary.meta.fastestLap}${
+                      primary.meta.fastestTime ? ` (${primary.meta.fastestTime})` : ""
+                    }`
+                  : undefined
+              }
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge variant="secondary">{loader.files.length} file</Badge>
+            <Badge variant="secondary">{totalChannels} canali</Badge>
+            <Badge variant="secondary">{totalLaps} giri</Badge>
+            {emptyChannels > 0 && (
+              <Badge variant="outline">{emptyChannels} canali vuoti</Badge>
+            )}
+          </div>
+        </section>
+
+        {loader.files.map((f, i) => (
+          <section key={i} className="rounded-lg border bg-card p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">{f.fileName}</h2>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="secondary">{f.channels.length} canali</Badge>
+                <Badge variant="secondary">{f.laps.length} giri</Badge>
+              </div>
+            </div>
+            <ChannelTable channels={f.channels} />
+          </section>
+        ))}
+      </main>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value?: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="font-medium">{value || "n/d"}</div>
     </div>
   );
 }
