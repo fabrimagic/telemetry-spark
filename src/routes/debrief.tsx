@@ -1,5 +1,18 @@
+import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
+import { buildStintAnalysis, type LapRow, type LapTempCorner } from "@/lib/ld/stintAnalysis";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export const Route = createFileRoute("/debrief")({
   head: () => ({
@@ -7,7 +20,7 @@ export const Route = createFileRoute("/debrief")({
       { title: "Stint Analysis — MoTeC Pit-Wall Analyzer" },
       {
         name: "description",
-        content: "Stint-level debrief analysis on already-loaded MoTeC telemetry files.",
+        content: "Per-lap stint analysis on loaded MoTeC telemetry: lap table, ABS hits, brakes/tyres asymmetry, setup changes.",
       },
     ],
   }),
@@ -15,29 +28,452 @@ export const Route = createFileRoute("/debrief")({
   ssr: false,
 });
 
-function DebriefPage() {
-  const { files } = useLdLoaderContext();
+/* ============ small format helpers ============ */
+function fmt(n: number | undefined, d = 1): string {
+  if (n === undefined || !Number.isFinite(n)) return "—";
+  return n.toFixed(d);
+}
+function fmtTime(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s)) return "—";
+  const m = Math.floor(s / 60);
+  const r = s - m * 60;
+  return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
+}
+function fmtLapTime(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
+  const m = Math.floor(s / 60);
+  const r = s - m * 60;
+  return `${m}:${r.toFixed(3).padStart(6, "0")}`;
+}
 
+/* ============ inline panel + page ============ */
+function PaperPanel({
+  eyebrow,
+  title,
+  meta,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  meta?: { k: string; v: string }[];
+  children: ReactNode;
+}) {
   return (
-    <div className="min-h-screen bg-background px-6 py-8 font-mono text-foreground">
-      <header className="mb-8 border-b border-border pb-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Analysis</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Stint Analysis</h1>
+    <section className="paper-card">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/30 px-5 py-4">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ◉ {eyebrow}
+          </div>
+          <h2 className="font-display text-3xl leading-none tracking-wider">{title}</h2>
+        </div>
+        {meta && (
+          <div className="flex flex-wrap gap-2">
+            {meta.map((m) => (
+              <Badge
+                key={m.k}
+                variant="outline"
+                className="rounded-none border-ink font-mono text-[10px] uppercase tracking-widest"
+              >
+                {m.k} · {m.v}
+              </Badge>
+            ))}
+          </div>
+        )}
       </header>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
 
-      {files.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border bg-card/40 p-8 text-center text-sm text-muted-foreground">
+function DebriefPage() {
+  const { files, toolsets } = useLdLoaderContext();
+  const file = files[0];
+  const toolsetMeta = toolsets[0]?.displayMeta;
+
+  const analysis = useMemo(
+    () => (file ? buildStintAnalysis(file, toolsetMeta || []) : null),
+    [file, toolsetMeta],
+  );
+
+  const [selectedLap, setSelectedLap] = useState<number | "all">("all");
+
+  if (!file || !analysis) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8 font-mono">
+        <header className="border-b border-ink/30 pb-3">
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ◉ Analysis
+          </div>
+          <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
+        </header>
+        <div className="paper-card p-6 text-sm text-muted-foreground">
           Nessun file caricato. Vai su{" "}
-          <Link to="/" className="text-primary underline-offset-4 hover:underline">
+          <Link to="/" className="text-race-red underline-offset-4 hover:underline">
             Overview
           </Link>{" "}
           per caricare i dati .ld / .ldx / .toolset.
         </div>
-      ) : (
-        <div className="text-sm text-muted-foreground">
-          {files.length} file caricat{files.length === 1 ? "o" : "i"}. Contenuto in arrivo.
+      </div>
+    );
+  }
+
+  const { conditions, laps, absHits, setupChanges, has } = analysis;
+
+  const selected = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
+  const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
+  const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+      <header className="border-b border-ink/30 pb-3 font-mono">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
+        <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
+        <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+          File · {file.fileName} · {laps.length} giri
         </div>
+      </header>
+
+      {/* ---------- Conditions ribbon ---------- */}
+      <PaperPanel eyebrow="Session" title="Conditions">
+        <div className="grid grid-cols-2 gap-3 font-mono text-xs sm:grid-cols-4">
+          <Cond label="Wet (log B wet)" value={conditions.wetPct === undefined ? "—" : `${fmt(conditions.wetPct, 0)} %`} highlight={!!conditions.wetPct && conditions.wetPct > 50} />
+          <Cond label="Air Temp" value={conditions.airTempAvg === undefined ? "—" : `${fmt(conditions.airTempAvg, 1)} °C`} />
+          <Cond label="Humidity" value={conditions.humidityAvg === undefined ? "—" : `${fmt(conditions.humidityAvg, 1)} %`} />
+          <Cond label="Air Pressure" value={conditions.airPressureAvg === undefined ? "—" : `${fmt(conditions.airPressureAvg, 1)} mbar`} />
+        </div>
+      </PaperPanel>
+
+      {/* ---------- Per-lap table ---------- */}
+      <PaperPanel eyebrow="Per Lap" title="Lap Table">
+        <ScrollArea className="max-h-[520px]">
+          <Table>
+            <TableHeader className="sticky top-0 bg-card">
+              <TableRow className="border-b border-ink/30">
+                <TH>Lap</TH>
+                <TH align="right">Time</TH>
+                {has.speed && <TH align="right">v max (km/h)</TH>}
+                {has.rpm && <TH align="right">RPM max</TH>}
+                {has.abs && <TH align="right">ABS</TH>}
+                <TH>Flags</TH>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {laps.map((r, i) => (
+                <TableRow
+                  key={r.lap}
+                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""}`}
+                  onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
+                >
+                  <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
+                    L{r.lap}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
+                    {fmtLapTime(r.durationS)}
+                  </TableCell>
+                  {has.speed && (
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
+                  )}
+                  {has.rpm && (
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
+                  )}
+                  {has.abs && (
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
+                  )}
+                  <TableCell className="space-x-1">
+                    {r.isFastest && <MiniBadge tone="red">fastest</MiniBadge>}
+                    {r.isOutLap && <MiniBadge tone="ink">out-lap</MiniBadge>}
+                    {r.hasAbs && <MiniBadge tone="ink">abs</MiniBadge>}
+                    {r.hasAlarm && <MiniBadge tone="red">alarm</MiniBadge>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </PaperPanel>
+
+      {/* ---------- Lap selector ---------- */}
+      <PaperPanel eyebrow="Drill-down" title="Lap Detail">
+        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Giro:
+          </span>
+          <Button
+            size="sm"
+            variant={selectedLap === "all" ? "default" : "outline"}
+            onClick={() => setSelectedLap("all")}
+            className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+          >
+            tutti
+          </Button>
+          {laps.map((r) => (
+            <Button
+              key={r.lap}
+              size="sm"
+              variant={selectedLap === r.lap ? "default" : "outline"}
+              onClick={() => setSelectedLap(r.lap)}
+              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""}`}
+            >
+              L{r.lap}
+            </Button>
+          ))}
+        </div>
+
+        {selected === null ? (
+          <>
+            {has.abs && has.lapDistance && (
+              <AbsDistributionBars hits={absHits} />
+            )}
+            <p className="mt-4 font-mono text-[11px] text-muted-foreground">
+              Seleziona un giro per il dettaglio.
+            </p>
+          </>
+        ) : (
+          <div className="space-y-5">
+            <h3 className="font-mono text-sm font-bold tracking-widest">
+              L{selected.lap} · {fmtLapTime(selected.durationS)}
+            </h3>
+
+            {/* ABS hits */}
+            {has.abs && (
+              <Section title="ABS Activations">
+                {lapAbs.length === 0 ? (
+                  <p className="font-mono text-xs text-muted-foreground">Nessuna attivazione ABS.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-ink/20">
+                        <TH>#</TH>
+                        <TH align="right">t (mm:ss)</TH>
+                        {has.lapDistance && <TH align="right">Lap Dist (m)</TH>}
+                        <TH align="right">Dur (s)</TH>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lapAbs.map((h, i) => (
+                        <TableRow key={i} className="border-b border-ink/10">
+                          <TableCell className="font-mono text-xs tabular-nums">{i + 1}</TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums">{fmtTime(h.tSec - selected.tStart)}</TableCell>
+                          {has.lapDistance && (
+                            <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(h.lapDistance, 0)}</TableCell>
+                          )}
+                          <TableCell className="text-right font-mono text-xs tabular-nums">{h.durationS.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Section>
+            )}
+
+            {/* Brakes */}
+            {has.brakes && (
+              <Section title="Brake Disc Temps">
+                <CornerGrid corner={selected.brakes} unit="°C" />
+              </Section>
+            )}
+
+            {/* Tyres */}
+            {has.tyres && (
+              <Section title="Tyre Temps (TPMS)">
+                <CornerGrid corner={selected.tyres} unit="°C" />
+              </Section>
+            )}
+
+            {/* Setup changes in lap */}
+            <Section title="Setup Changes in Lap">
+              {lapChanges.length === 0 ? (
+                <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
+              ) : (
+                <ul className="space-y-1 font-mono text-xs">
+                  {lapChanges.map((c) => (
+                    <li key={c.id} className="flex flex-wrap gap-x-3">
+                      <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                      <span className="font-bold">{c.channelLabel}</span>
+                      <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          </div>
+        )}
+      </PaperPanel>
+
+      {/* ---------- ABS distribution (always-on) ---------- */}
+      {has.abs && has.lapDistance && selected === null && (
+        <PaperPanel eyebrow="Track Map" title="ABS by Lap Distance">
+          <AbsDistributionBars hits={absHits} />
+        </PaperPanel>
       )}
+
+      {/* ---------- Full setup-change timeline ---------- */}
+      {(has.brkbias || has.mappos || has.tc) && (
+        <PaperPanel eyebrow="Stint" title="Setup Change Timeline">
+          {setupChanges.length === 0 ? (
+            <p className="font-mono text-xs text-muted-foreground">
+              Nessun cambio assetto rilevato nello stint.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-ink/30">
+                  <TH>Lap</TH>
+                  <TH>t</TH>
+                  <TH>Channel</TH>
+                  <TH align="right">Prev</TH>
+                  <TH align="right">New</TH>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {setupChanges.map((c, i) => (
+                  <TableRow key={c.id} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""}`}>
+                    <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.prev, 2)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </PaperPanel>
+      )}
+    </div>
+  );
+}
+
+/* ============ small subcomponents ============ */
+function TH({ children, align }: { children: ReactNode; align?: "right" }) {
+  return (
+    <TableHead
+      className={`font-mono text-[10px] uppercase tracking-widest text-foreground ${align === "right" ? "text-right" : ""}`}
+    >
+      {children}
+    </TableHead>
+  );
+}
+
+function MiniBadge({ children, tone }: { children: ReactNode; tone: "red" | "ink" }) {
+  const cls =
+    tone === "red"
+      ? "border border-race-red bg-race-red/15 text-race-red"
+      : "border border-ink/40 bg-transparent text-ink";
+  return (
+    <Badge className={`rounded-none font-mono text-[9px] uppercase tracking-widest ${cls}`}>
+      {children}
+    </Badge>
+  );
+}
+
+function Cond({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={`border border-ink/30 px-3 py-2 ${highlight ? "border-race-red bg-race-red/5" : ""}`}>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 text-sm font-bold tabular-nums ${highlight ? "text-race-red" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <h4 className="mb-2 font-mono text-[11px] uppercase tracking-[0.25em] text-race-red">
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+function CornerGrid({ corner, unit }: { corner: LapTempCorner; unit: string }) {
+  const cell = (k: "fl" | "fr" | "rl" | "rr") => {
+    const c = corner[k];
+    if (!c) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="font-mono text-xs tabular-nums">
+        max <b>{fmt(c.max, 0)}</b>
+        <span className="text-muted-foreground"> / avg {fmt(c.avg, 0)}</span>
+      </span>
+    );
+  };
+  return (
+    <div className="space-y-3 font-mono">
+      <div className="grid grid-cols-2 gap-2">
+        <Quad label="FL" unit={unit}>{cell("fl")}</Quad>
+        <Quad label="FR" unit={unit}>{cell("fr")}</Quad>
+        <Quad label="RL" unit={unit}>{cell("rl")}</Quad>
+        <Quad label="RR" unit={unit}>{cell("rr")}</Quad>
+      </div>
+      <div className="flex flex-wrap gap-3 text-[11px]">
+        {corner.axleDelta !== undefined && (
+          <span>
+            <span className="text-muted-foreground uppercase tracking-widest">Front−Rear:</span>{" "}
+            <b className="tabular-nums">{(corner.axleDelta >= 0 ? "+" : "") + fmt(corner.axleDelta, 1)} {unit}</b>
+          </span>
+        )}
+        {corner.sideDelta !== undefined && (
+          <span>
+            <span className="text-muted-foreground uppercase tracking-widest">Left−Right:</span>{" "}
+            <b className="tabular-nums">{(corner.sideDelta >= 0 ? "+" : "") + fmt(corner.sideDelta, 1)} {unit}</b>
+          </span>
+        )}
+        {corner.maxAll !== undefined && (
+          <span>
+            <span className="text-muted-foreground uppercase tracking-widest">Peak:</span>{" "}
+            <b className="tabular-nums">{fmt(corner.maxAll, 0)} {unit}</b>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Quad({ label, unit, children }: { label: string; unit: string; children: ReactNode }) {
+  return (
+    <div className="border border-ink/30 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label} <span className="opacity-60">({unit})</span>
+      </div>
+      <div className="mt-0.5">{children}</div>
+    </div>
+  );
+}
+
+/* Simple histogram of ABS hits along normalized lap distance. */
+function AbsDistributionBars({ hits }: { hits: { lapDistance?: number }[] }) {
+  const withDist = hits.filter((h): h is { lapDistance: number } => h.lapDistance !== undefined && Number.isFinite(h.lapDistance));
+  if (withDist.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Nessuna attivazione ABS con lap distance disponibile.
+      </p>
+    );
+  }
+  const maxDist = Math.max(...withDist.map((h) => h.lapDistance));
+  const BINS = 20;
+  const bin = new Array(BINS).fill(0) as number[];
+  for (const h of withDist) {
+    const idx = Math.min(BINS - 1, Math.floor((h.lapDistance / maxDist) * BINS));
+    bin[idx]++;
+  }
+  const peak = Math.max(...bin, 1);
+  return (
+    <div className="space-y-2 font-mono">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+        Distribuzione attivazioni ABS · {withDist.length} eventi · max distance {fmt(maxDist, 0)} m
+      </div>
+      <div className="flex h-24 items-end gap-1 border-b border-ink/30">
+        {bin.map((v, i) => (
+          <div key={i} className="flex-1 bg-race-red/70" style={{ height: `${(v / peak) * 100}%` }} title={`${v} eventi`} />
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+        <span>0 m</span>
+        <span>{fmt(maxDist, 0)} m</span>
+      </div>
     </div>
   );
 }
