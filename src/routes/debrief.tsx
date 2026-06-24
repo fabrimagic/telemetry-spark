@@ -121,9 +121,10 @@ function DebriefPage() {
 
   const { conditions, laps, absHits, setupChanges, has, refLapLength } = analysis;
 
-  const selectedRow = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
-  // Prevent selecting an invalid lap as the "reference" detail view.
-  const selected = selectedRow && selectedRow.isValidLap ? selectedRow : null;
+  const visibleLaps = laps.filter((l) =>
+    lapFilter === "all" ? true : lapFilter === "valid" ? l.isValidLap : !l.isValidLap,
+  );
+  const selected = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
   const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
   const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
 
