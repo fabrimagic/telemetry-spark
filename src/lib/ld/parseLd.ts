@@ -124,11 +124,15 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
       // B2: for channels where negative values are NOT physically plausible
       // (distances, times, counters, lap numbers, busy flags), exclude
       // sentinel samples (<= -1) from min/max/avg.
+      // Lap Speed is additionally a sparse end-of-lap channel: most samples
+      // are 0 placeholders; exclude them so stats reflect the few real values.
       const filterSentinel = isSentinelFiltered(name);
+      const filterZeros = /^lap\s*speed$/i.test(name);
       let min = Infinity, max = -Infinity, sum = 0, cnt = 0;
       for (let j = 0; j < nSamples; j++) {
         const v = values[j];
         if (filterSentinel && v <= -1) continue;
+        if (filterZeros && v === 0) continue;
         if (v < min) min = v;
         if (v > max) max = v;
         sum += v; cnt++;
@@ -212,40 +216,71 @@ function isSentinelFiltered(name: string): boolean {
   return /(distance|time|count|number|busy|lap\s*speed|fuel|odo)/.test(n);
 }
 
-/** Recompute min/max/avg per-lap-segment for channels that reset each lap. */
+/**
+ * Recompute min/max/avg for "Lap Distance" per-lap.
+ * The raw series may either reset at each lap (then per-lap value = max window)
+ * or accumulate across laps (then per-lap value = max-min within window).
+ * Lap windows are derived from "Lap Number" changes when available, else
+ * by drop detection on the channel itself.
+ */
 function recomputePerLapStats(channels: Channel[]) {
-  const perLapNames = ["lap distance", "lap time"];
+  const lapNum = channels.find((c) => c.name.toLowerCase() === "lap number");
   for (const c of channels) {
     if (c.empty || c.nSamples === 0) continue;
-    if (!perLapNames.includes(c.name.toLowerCase())) continue;
+    if (c.name.toLowerCase() !== "lap distance") continue;
 
-    // Detect reset boundaries: a sharp drop relative to the previous sample.
-    // Threshold of 50 covers both metres (Lap Distance) and seconds (Lap Time).
-    let segStart = 0;
-    let bestMax = -Infinity, bestMin = Infinity, sum = 0, cnt = 0;
-    const flush = (end: number) => {
-      let segMax = -Infinity, segMin = Infinity;
-      for (let j = segStart; j < end; j++) {
+    // Build per-lap [start,end) sample windows in this channel's own index space.
+    const windows: Array<[number, number]> = [];
+    if (lapNum && lapNum.nSamples > 1 && lapNum.freq > 0) {
+      const ratio = c.freq / lapNum.freq;
+      let lapStart = 0;
+      let prevLap = Math.round(lapNum.values[0]);
+      for (let i = 1; i < lapNum.nSamples; i++) {
+        const v = Math.round(lapNum.values[i]);
+        if (v !== prevLap) {
+          const endIdx = Math.min(c.nSamples, Math.round(i * ratio));
+          if (endIdx > lapStart) windows.push([lapStart, endIdx]);
+          lapStart = endIdx;
+          prevLap = v;
+        }
+      }
+      if (lapStart < c.nSamples) windows.push([lapStart, c.nSamples]);
+    } else {
+      // Fallback: detect resets in the channel itself (sharp drops).
+      let segStart = 0;
+      for (let i = 1; i < c.nSamples; i++) {
+        if (c.values[i - 1] - c.values[i] > 50) {
+          if (i > segStart) windows.push([segStart, i]);
+          segStart = i;
+        }
+      }
+      if (segStart < c.nSamples) windows.push([segStart, c.nSamples]);
+    }
+
+    if (windows.length === 0) continue;
+
+    let bestMax = -Infinity, bestMin = Infinity, sumPerLap = 0, lapCnt = 0;
+    for (const [a, b] of windows) {
+      let wMin = Infinity, wMax = -Infinity, valid = 0;
+      for (let j = a; j < b; j++) {
         const v = c.values[j];
         if (v <= -1) continue;
-        if (v > segMax) segMax = v;
-        if (v < segMin) segMin = v;
-        sum += v; cnt++;
+        if (v < wMin) wMin = v;
+        if (v > wMax) wMax = v;
+        valid++;
       }
-      if (segMax > bestMax) bestMax = segMax;
-      if (segMin < bestMin) bestMin = segMin;
-    };
-    for (let i = 1; i < c.nSamples; i++) {
-      if (c.values[i - 1] - c.values[i] > 50) {
-        flush(i);
-        segStart = i;
-      }
+      if (valid === 0) continue;
+      // Per-lap distance covered: handles both reset (wMin≈0) and cumulative cases.
+      const lapDist = wMax - wMin;
+      if (lapDist > bestMax) bestMax = lapDist;
+      if (lapDist < bestMin) bestMin = lapDist;
+      sumPerLap += lapDist;
+      lapCnt++;
     }
-    flush(c.nSamples);
-    if (cnt > 0) {
+    if (lapCnt > 0) {
       c.min = bestMin;
       c.max = bestMax;
-      c.avg = sum / cnt;
+      c.avg = sumPerLap / lapCnt;
     }
   }
 }
