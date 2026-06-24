@@ -5,7 +5,13 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { LdFile } from "@/lib/ld/types";
-import type { ToolsetFile } from "@/lib/toolset/types";
+import type { ToolsetFile, ToolsetDisplayMeta } from "@/lib/toolset/types";
+import { SCLU_RATE_CHANNELS } from "@/lib/ld/channelOverrides";
+
+/** Match ChannelTable.tsx normalization: "sclu_yaw_rate" → "sclu yaw rate". */
+function normChannel(s: string): string {
+  return s.trim().toLowerCase().replace(/[_\s]+/g, " ");
+}
 
 const RED: [number, number, number] = [212, 0, 0];
 const INK: [number, number, number] = [20, 20, 20];
@@ -228,7 +234,12 @@ function drawCover(
   return y;
 }
 
-function drawLdFile(doc: jsPDF, file: LdFile, y: number): number {
+function drawLdFile(
+  doc: jsPDF,
+  file: LdFile,
+  toolsetMetaByName: Map<string, ToolsetDisplayMeta>,
+  y: number,
+): number {
   y = sectionTitle(doc, "Telemetry · .ld", file.fileName, y);
 
   y = metaLine(
@@ -255,20 +266,35 @@ function drawLdFile(doc: jsPDF, file: LdFile, y: number): number {
   y += lines.length * 10 + 4;
   doc.setFont("helvetica", "normal");
 
-  const body = file.channels.map((c) => [
-    c.name,
-    c.unit || "—",
-    String(c.freq),
-    String(c.nSamples),
-    fmtNum(c.min),
-    fmtNum(c.max),
-    fmtNum(c.avg),
-    c.category,
-    c.empty ? "empty" : c.badges.join(",") || "—",
-  ]);
+  const body = file.channels.map((c) => {
+    const lname = normChannel(c.name);
+    const parts: string[] = [];
+    if (SCLU_RATE_CHANNELS.has(lname)) {
+      const tm = toolsetMetaByName.get(lname);
+      if (tm) {
+        parts.push(
+          `range atteso da toolset: ${tm.minimum}–${tm.maximum}${tm.userUnit ? ` ${tm.userUnit}` : ""}`,
+        );
+      }
+    }
+    if (c.notes && c.notes.length > 0) parts.push(c.notes.join(" · "));
+    const noteCell = parts.length > 0 ? parts.join(" — ") : "—";
+    return [
+      c.name,
+      c.unit || "—",
+      String(c.freq),
+      String(c.nSamples),
+      fmtNum(c.min),
+      fmtNum(c.max),
+      fmtNum(c.avg),
+      c.category,
+      c.empty ? "empty" : c.badges.join(",") || "—",
+      noteCell,
+    ];
+  });
   y = table(
     doc,
-    [["Channel", "Unit", "Hz", "N", "Min", "Max", "Avg", "Cat", "Flag"]],
+    [["Channel", "Unit", "Hz", "N", "Min", "Max", "Avg", "Cat", "Flag", "Note"]],
     body,
     y,
     {
@@ -278,6 +304,7 @@ function drawLdFile(doc: jsPDF, file: LdFile, y: number): number {
         4: { halign: "right" },
         5: { halign: "right" },
         6: { halign: "right" },
+        9: { halign: "left", cellWidth: 120 },
       },
     },
   );
