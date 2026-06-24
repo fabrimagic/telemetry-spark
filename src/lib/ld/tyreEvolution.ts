@@ -36,10 +36,18 @@ export interface TyreEvolutionSummary {
   warmupLaps?: number;
   /** For each available wheel, total temp delta from first to last valid lap. */
   totalTempDelta: Partial<Record<WheelKey, number>>;
-  /** Mean axle delta (front avg - rear avg) across valid laps; uses only available wheels. */
+  /** Mean axle delta (front - rear) across valid laps; built from homolateral pairs only. */
   axleDeltaAvg?: number;
-  /** Mean side delta (left avg - right avg) across valid laps; uses only available wheels. */
+  /** Mean side delta (left - right) across valid laps; built from homoaxle pairs only. */
   sideDeltaAvg?: number;
+  /** True when axleDeltaAvg is built from a single side only. */
+  axleDeltaPartial?: boolean;
+  /** True when sideDeltaAvg is built from a single axle only. */
+  sideDeltaPartial?: boolean;
+  /** Which homolateral pair(s) contributed to axleDeltaAvg. */
+  axleDeltaSides?: { left: boolean; right: boolean };
+  /** Which homoaxle pair(s) contributed to sideDeltaAvg. */
+  sideDeltaAxles?: { front: boolean; rear: boolean };
 }
 
 export interface TyreEvolution {
