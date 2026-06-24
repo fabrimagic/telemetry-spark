@@ -88,7 +88,7 @@ function Index() {
           onAddFiles={loader.loadFiles}
         />
 
-        <main className="flex-1 px-6 py-8">
+        <main className="min-w-0 flex-1 px-4 py-5">
           {!hasAnything ? (
             <EmptyState>
               <FileDropzone
