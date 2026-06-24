@@ -252,7 +252,7 @@ function DebriefPage() {
               <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
             )}
             <p className="mt-4 font-mono text-[11px] text-muted-foreground">
-              Seleziona un giro valido per il dettaglio.
+              Seleziona un giro per il dettaglio.
             </p>
           </>
         ) : (
