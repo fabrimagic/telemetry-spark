@@ -48,6 +48,15 @@ export interface ZoneAbs {
   meanDurationS: number;
 }
 
+/** One per-lap, per-zone measurement. Values are `undefined` when the lap
+ *  did not yield a valid sample for that metric in that zone (lap that
+ *  skips the zone, missing data, etc.) — NEVER interpolated. */
+export interface PerLapZoneEntry {
+  lap: number;
+  vMin?: number;
+  brakePointDist?: number;
+}
+
 export interface SignatureRow {
   zone: BrakingZone;
   /** Conventional label (T1, T2, …). */
@@ -67,6 +76,11 @@ export interface SignatureRow {
   /** Mean slope of throttle (%/m) over the reopen-to-end window. */
   throttleReopenGradient: ZoneStat;
   abs: ZoneAbs;
+  /** Per-lap measured values (one entry per valid lap, in chronological
+   *  order; same order/length as BrakingSignatureResult.validLapNumbers).
+   *  Exposes the values that aggregate stats are computed from, so the
+   *  heatmap can render the underlying matrix without recomputing. */
+  perLapValues: PerLapZoneEntry[];
 }
 
 export interface BrakingSignatureResult {
@@ -78,6 +92,9 @@ export interface BrakingSignatureResult {
   refLapLength?: number;
   /** Number of valid laps actually resampled. */
   lapsConsidered?: number;
+  /** Ordered (chronological) lap numbers actually resampled. Aligned 1:1
+   *  with each row's `perLapValues`. */
+  validLapNumbers?: number[];
   /** Per-zone aggregated rows. */
   rows?: SignatureRow[];
   /** Whether throttle channel was available (controls UI columns). */
@@ -400,31 +417,46 @@ export function buildBrakingSignature(
       refLapLength: refGrid.lapLength,
     };
   }
-  const resampled = validLaps
-    .map((l) => resampleLapOnGrid(file, l, refGrid.grid, channels))
-    .filter((r): r is ResampledLap => r !== null);
+  const resampledPairs: Array<{ lap: LapRow; rs: ResampledLap }> = [];
+  for (const l of validLaps) {
+    const rs = resampleLapOnGrid(file, l, refGrid.grid, channels);
+    if (rs) resampledPairs.push({ lap: l, rs });
+  }
+  const validLapNumbers = resampledPairs.map((p) => p.lap.lap);
 
-  // For each zone, collect per-lap metrics and aggregate.
+  // For each zone, collect per-lap metrics (kept as PerLapZoneEntry so the
+  // heatmap can render the matrix without recomputing) and aggregate.
   const rows: SignatureRow[] = zones.map((zone, idx) => {
-    const perLap = resampled
-      .map((lap) => metricsForLap(lap, zone, hasThrottle))
+    const perLapMetrics = resampledPairs.map((p) => ({
+      lapNumber: p.lap.lap,
+      m: metricsForLap(p.rs, zone, hasThrottle),
+    }));
+    const usable = perLapMetrics
+      .map((e) => e.m)
       .filter((m): m is NonNullable<ReturnType<typeof metricsForLap>> => m !== undefined);
 
-    const vMin = stat(perLap.map((m) => m.vMin));
-    const brakePeak = stat(perLap.map((m) => m.brakePeak));
-    const brakePointDist = stat(perLap.map((m) => m.brakePointDist));
-    const releaseLength = stat(perLap.map((m) => m.releaseLength));
+    const vMin = stat(usable.map((m) => m.vMin));
+    const brakePeak = stat(usable.map((m) => m.brakePeak));
+    const brakePointDist = stat(usable.map((m) => m.brakePointDist));
+    const releaseLength = stat(usable.map((m) => m.releaseLength));
     const throttleReopenDist = hasThrottle
-      ? stat(perLap.map((m) => m.throttleReopenDist))
+      ? stat(usable.map((m) => m.throttleReopenDist))
       : { mean: NaN, std: NaN, n: 0 };
     const throttleReopenGradient = hasThrottle
-      ? stat(perLap.map((m) => m.throttleReopenGradient))
+      ? stat(usable.map((m) => m.throttleReopenGradient))
       : { mean: NaN, std: NaN, n: 0 };
     const abs = aggregateAbs(zone, absHits, hasAbsChannel);
+
+    const perLapValues: PerLapZoneEntry[] = perLapMetrics.map((e) => ({
+      lap: e.lapNumber,
+      vMin: e.m && Number.isFinite(e.m.vMin) ? e.m.vMin : undefined,
+      brakePointDist: e.m && Number.isFinite(e.m.brakePointDist) ? e.m.brakePointDist : undefined,
+    }));
+
     return {
       zone,
       label: `T${idx + 1}`,
-      lapsAnalysed: perLap.length,
+      lapsAnalysed: usable.length,
       vMin,
       brakePeak,
       brakePointDist,
@@ -432,6 +464,7 @@ export function buildBrakingSignature(
       throttleReopenDist,
       throttleReopenGradient,
       abs,
+      perLapValues,
     };
   });
 
@@ -439,7 +472,8 @@ export function buildBrakingSignature(
     kind: "ok",
     refLap,
     refLapLength: refGrid.lapLength,
-    lapsConsidered: resampled.length,
+    lapsConsidered: resampledPairs.length,
+    validLapNumbers,
     rows,
     hasThrottle,
     hasAbs: hasAbsChannel,
