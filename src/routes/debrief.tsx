@@ -1083,13 +1083,13 @@ function sampleChan(ch: Channel | undefined, t: number): number | undefined {
 }
 
 function sampleAtTime(file: LdFile, t: number): CursorSample {
-  const grab = (aliases: string[]) => sampleChan(findChannel(file, aliases), t);
-  const speed = grab(["ground speed", "speed"]);
-  const rpm = grab(["rpm", "engine rpm"]);
-  const aps = grab(["ecu aps", "ath", "aps", "throttle"]);
-  const pbf = grab(["log pbrake f", "pbrake f", "brake pressure front"]);
-  const pbr = grab(["log pbrake r", "pbrake r", "brake pressure rear"]);
-  const steer = grab(["log asteer", "asteer", "steering angle", "steer"]);
+  const grab = (k: LogicalKey) => sampleChan(findChannel(file, k), t);
+  const speed = grab("speed");
+  const rpm = grab("rpm");
+  const aps = grab("throttle");
+  const pbf = grab("brakePressFront");
+  const pbr = grab("brakePressRear");
+  const steer = grab("steeringAngle");
 
   const channels: CursorSample["channels"] = [];
   const push = (label: string, unit: string, v: number | undefined, decimals = 1) => {
@@ -1102,16 +1102,16 @@ function sampleAtTime(file: LdFile, t: number): CursorSample {
   push("Brake R", "bar", pbr, 1);
   push("Steer", "°", steer, 1);
 
-  const corner = (base: string) => ({
-    fl: sampleChan(findChannel(file, [`${base} fl`]), t),
-    fr: sampleChan(findChannel(file, [`${base} fr`]), t),
-    rl: sampleChan(findChannel(file, [`${base} rl`]), t),
-    rr: sampleChan(findChannel(file, [`${base} rr`]), t),
+  const corner = (base: "brakeDiscTemp" | "tyreTemp") => ({
+    fl: sampleChan(findChannel(file, `${base}.fl` as LogicalKey), t),
+    fr: sampleChan(findChannel(file, `${base}.fr` as LogicalKey), t),
+    rl: sampleChan(findChannel(file, `${base}.rl` as LogicalKey), t),
+    rr: sampleChan(findChannel(file, `${base}.rr` as LogicalKey), t),
   });
   return {
     channels,
-    brakes: corner("log brkdisctemp"),
-    tyres: corner("tpms temp"),
+    brakes: corner("brakeDiscTemp"),
+    tyres: corner("tyreTemp"),
   };
 }
 
