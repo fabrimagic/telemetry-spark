@@ -793,7 +793,7 @@ interface TraceSpec {
   key: string;
   label: string;
   unit: string;
-  aliases: string[];
+  logical: LogicalKey;
   color: string;
   /** Show reference-lap overlay (only for speed). */
   withRef?: boolean;
@@ -801,12 +801,12 @@ interface TraceSpec {
 }
 
 const TRACE_SPECS: TraceSpec[] = [
-  { key: "speed", label: "Ground Speed", unit: "km/h", aliases: ["ground speed", "speed"], color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
-  { key: "rpm", label: "RPM", unit: "rpm", aliases: ["rpm", "engine rpm"], color: "#c97a00", decimals: 0 },
-  { key: "aps", label: "Throttle", unit: "%", aliases: ["ecu aps", "ath", "aps", "throttle"], color: "#2a7a2a", decimals: 1 },
-  { key: "pbf", label: "Brake Press F", unit: "bar", aliases: ["log pbrake f", "pbrake f", "brake pressure front"], color: "#1f4a8a", decimals: 1 },
-  { key: "pbr", label: "Brake Press R", unit: "bar", aliases: ["log pbrake r", "pbrake r", "brake pressure rear"], color: "#3d6cc4", decimals: 1 },
-  { key: "steer", label: "Steering", unit: "°", aliases: ["log asteer", "asteer", "steering angle", "steer"], color: "#7a3d8a", decimals: 1 },
+  { key: "speed", label: "Ground Speed", unit: "km/h", logical: "speed",           color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
+  { key: "rpm",   label: "RPM",          unit: "rpm",  logical: "rpm",             color: "#c97a00", decimals: 0 },
+  { key: "aps",   label: "Throttle",     unit: "%",    logical: "throttle",        color: "#2a7a2a", decimals: 1 },
+  { key: "pbf",   label: "Brake Press F", unit: "bar", logical: "brakePressFront", color: "#1f4a8a", decimals: 1 },
+  { key: "pbr",   label: "Brake Press R", unit: "bar", logical: "brakePressRear",  color: "#3d6cc4", decimals: 1 },
+  { key: "steer", label: "Steering",     unit: "°",    logical: "steeringAngle",   color: "#7a3d8a", decimals: 1 },
 ];
 
 function LapChannelTraces({
