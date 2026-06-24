@@ -78,6 +78,14 @@ export function TrackMap({
     outline.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ") +
     " Z";
 
+  if (!pathD || outline.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Errore: outline del tracciato vuoto (outline pts: {outline.length}).
+      </p>
+    );
+  }
+
   // Direction arrow geometry.
   let arrow: { x: number; y: number; angle: number } | null = null;
   if (directionHint) {
