@@ -378,6 +378,14 @@ export function DrivingConsistencyPanel({
   const summary = result.summary;
   const showThrottle = result.hasThrottle;
 
+  const availableRadarMetrics = useMemo<RadarMetricSpec[]>(
+    () => RADAR_METRICS.filter((m) => m.key !== "throttleReopenDist" || showThrottle),
+    [showThrottle],
+  );
+  const [radarMetricKey, setRadarMetricKey] = useState<RadarMetricKey>("vMin");
+  const radarSpec =
+    availableRadarMetrics.find((m) => m.key === radarMetricKey) ?? availableRadarMetrics[0];
+
   return (
     <div className="space-y-6">
       {/* Summary line */}
