@@ -771,3 +771,52 @@ function LapChannelTraces({
     </div>
   );
 }
+
+/* ============ Timing verification status banner ============ */
+function fmtMs(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s)) return "—";
+  const m = Math.floor(s / 60);
+  const r = s - m * 60;
+  return `${m}:${r.toFixed(3).padStart(6, "0")}`;
+}
+
+function TimingStatus({ timing }: { timing: LapTimingResult }) {
+  const {
+    timingVerified,
+    status,
+    fastestFound,
+    countFound,
+    oracleFastestSec,
+    oracleTotalLaps,
+  } = timing;
+
+  let label: string;
+  let tone: "ok" | "warn";
+  if (timingVerified) {
+    tone = "ok";
+    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})`;
+  } else {
+    tone = "warn";
+    const reason =
+      status === "no-channel"
+        ? "canale lap time prev assente"
+        : status === "no-oracle"
+          ? "summary .ldx mancante"
+          : status === "fastest-mismatch"
+            ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
+            : status === "count-mismatch"
+              ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}`
+              : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
+    label = `Tempi stimati, non verificati col beacon · ${reason}`;
+  }
+  const cls =
+    tone === "ok"
+      ? "border-race-red text-race-red"
+      : "border-ink/40 text-muted-foreground";
+  return (
+    <div className={`mt-2 inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
+      {label}
+    </div>
+  );
+}
+
