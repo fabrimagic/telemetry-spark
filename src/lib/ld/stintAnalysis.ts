@@ -605,6 +605,9 @@ function parseFastestTimeStr(s: string | undefined): number | undefined {
   const sec = Number(m[2]);
   if (!Number.isFinite(min) || !Number.isFinite(sec)) return undefined;
   return min * 60 + sec;
+}
+
+
 
 function meanValid(arr: Float32Array): number | undefined {
   let sum = 0;
