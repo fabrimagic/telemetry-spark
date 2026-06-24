@@ -445,6 +445,29 @@ export function buildStintAnalysis(
   });
   if (bestIdx >= 0) lapRows[bestIdx].isFastest = true;
 
+  // ----- Coherence with .ldx oracle -----
+  const validCount = lapRows.filter((r) => r.isValidLap).length;
+  const fastestLapSession = bestIdx >= 0 ? lapRows[bestIdx].lap : undefined;
+  const oracleFastestSec = parseFastestTimeStr(file.meta.fastestTime);
+  const oracleFastestLap = file.meta.fastestLap;
+  const oracleTotalLaps = file.meta.totalLaps;
+  const COUNT_TOL = 3;
+  const countOk =
+    oracleTotalLaps !== undefined && Math.abs(validCount - oracleTotalLaps) <= COUNT_TOL;
+  const fastestOk =
+    oracleFastestLap !== undefined &&
+    fastestLapSession !== undefined &&
+    fastestLapSession === oracleFastestLap;
+  const coherence: LapCoherence = {
+    totalSegments: lapRows.length,
+    validLaps: validCount,
+    fastestLapSession,
+    oracleFastestLap,
+    oracleFastestSec,
+    oracleTotalLaps,
+    alignedWithOracle: !!(countOk && fastestOk),
+  };
+
   // ----- Reference lap length (median of max Lap Distance across valid laps) -----
   let refLapLength: number | undefined;
   if (lapDist) {
