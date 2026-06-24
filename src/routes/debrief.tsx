@@ -972,4 +972,172 @@ function CoherenceStatus({ coherence }: { coherence: LapCoherence }) {
   );
 }
 
+/* ============ Spatial helpers (distance↔time + per-cursor sample) ============ */
+
+interface DistTimeIndex {
+  /** Time (s) for a given lap distance (m). null if out of range. */
+  tAt(d: number): number | null;
+  /** Lap distance (m) for a given absolute time (s). null if outside the lap. */
+  dAt(t: number): number | null;
+}
+
+/** Build a monotonic distance↔time index from the Lap Distance channel over a lap window. */
+function buildDistTimeIndex(file: LdFile, lap: LapRow): DistTimeIndex | null {
+  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  if (!lapCh) return null;
+  const freq = lapCh.freq || 1;
+  const i0 = Math.max(0, Math.floor(lap.tStart * freq));
+  const i1 = Math.min(lapCh.values.length, Math.ceil(lap.tEnd * freq));
+  const samples: { t: number; d: number }[] = [];
+  for (let i = i0; i < i1; i++) {
+    const d = lapCh.values[i];
+    if (!Number.isFinite(d) || d < 0) continue;
+    samples.push({ t: i / freq, d });
+  }
+  if (samples.length < 4) return null;
+  const byTime = samples.slice().sort((a, b) => a.t - b.t);
+  const byDist = samples.slice().sort((a, b) => a.d - b.d);
+  const lerp = (
+    arr: { t: number; d: number }[],
+    key: "t" | "d",
+    target: number,
+    other: "t" | "d",
+  ): number | null => {
+    if (arr.length === 0) return null;
+    if (target <= arr[0][key]) return arr[0][other];
+    if (target >= arr[arr.length - 1][key]) return arr[arr.length - 1][other];
+    let lo = 0;
+    let hi = arr.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid][key] <= target) lo = mid;
+      else hi = mid;
+    }
+    const a = arr[lo];
+    const b = arr[hi];
+    const span = b[key] - a[key];
+    const tt = span > 0 ? (target - a[key]) / span : 0;
+    return a[other] + (b[other] - a[other]) * tt;
+  };
+  return {
+    tAt: (d: number) => (Number.isFinite(d) ? lerp(byDist, "d", d, "t") : null),
+    dAt: (t: number) => (Number.isFinite(t) ? lerp(byTime, "t", t, "d") : null),
+  };
+}
+
+interface CursorSample {
+  /** Generic channel readouts (speed/throttle/brake/rpm/steer) at the cursor. */
+  channels: { label: string; unit: string; value: number; decimals: number }[];
+  brakes: { fl?: number; fr?: number; rl?: number; rr?: number };
+  tyres: { fl?: number; fr?: number; rl?: number; rr?: number };
+}
+
+function sampleChan(ch: Channel | undefined, t: number): number | undefined {
+  if (!ch) return undefined;
+  const freq = ch.freq || 1;
+  const i = Math.max(0, Math.min(ch.values.length - 1, Math.round(t * freq)));
+  const v = ch.values[i];
+  if (!Number.isFinite(v) || v === -1) return undefined;
+  return v;
+}
+
+function sampleAtTime(file: LdFile, t: number): CursorSample {
+  const grab = (aliases: string[]) => sampleChan(findChannel(file, aliases), t);
+  const speed = grab(["ground speed", "speed"]);
+  const rpm = grab(["rpm", "engine rpm"]);
+  const aps = grab(["ecu aps", "ath", "aps", "throttle"]);
+  const pbf = grab(["log pbrake f", "pbrake f", "brake pressure front"]);
+  const pbr = grab(["log pbrake r", "pbrake r", "brake pressure rear"]);
+  const steer = grab(["log asteer", "asteer", "steering angle", "steer"]);
+
+  const channels: CursorSample["channels"] = [];
+  const push = (label: string, unit: string, v: number | undefined, decimals = 1) => {
+    if (v !== undefined && Number.isFinite(v)) channels.push({ label, unit, value: v, decimals });
+  };
+  push("v", "km/h", speed, 1);
+  push("RPM", "", rpm, 0);
+  push("Throttle", "%", aps, 1);
+  push("Brake F", "bar", pbf, 1);
+  push("Brake R", "bar", pbr, 1);
+  push("Steer", "°", steer, 1);
+
+  const corner = (base: string) => ({
+    fl: sampleChan(findChannel(file, [`${base} fl`]), t),
+    fr: sampleChan(findChannel(file, [`${base} fr`]), t),
+    rl: sampleChan(findChannel(file, [`${base} rl`]), t),
+    rr: sampleChan(findChannel(file, [`${base} rr`]), t),
+  });
+  return {
+    channels,
+    brakes: corner("log brkdisctemp"),
+    tyres: corner("tpms temp"),
+  };
+}
+
+/* ============ Cursor info panel ============ */
+
+function CursorInfoPanel({
+  cursorDist,
+  sample,
+}: {
+  cursorDist: number | null;
+  sample: CursorSample | null;
+}) {
+  if (cursorDist == null || !sample) {
+    return (
+      <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+        Passa il mouse su mappa o tracce per leggere i valori puntuali del giro.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 space-y-2 border border-ink/20 bg-card/40 p-3 font-mono">
+      <div className="flex flex-wrap items-baseline gap-x-3 text-[10px] uppercase tracking-widest">
+        <span className="text-race-red">cursore</span>
+        <span className="tabular-nums text-foreground">{Math.round(cursorDist)} m</span>
+      </div>
+      {sample.channels.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {sample.channels.map((c) => (
+            <span key={c.label} className="tabular-nums">
+              <span className="text-muted-foreground">{c.label}</span>{" "}
+              <b>{c.value.toFixed(c.decimals)}</b>
+              {c.unit && <span className="text-muted-foreground"> {c.unit}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      <CornerReadout label="Brakes (°C)" c={sample.brakes} />
+      <CornerReadout label="Tyres (°C)" c={sample.tyres} />
+    </div>
+  );
+}
+
+function CornerReadout({
+  label,
+  c,
+}: {
+  label: string;
+  c: { fl?: number; fr?: number; rl?: number; rr?: number };
+}) {
+  const has = c.fl !== undefined || c.fr !== undefined || c.rl !== undefined || c.rr !== undefined;
+  if (!has) return null;
+  const cell = (v: number | undefined) =>
+    v === undefined ? <span className="text-muted-foreground">—</span> : <b>{v.toFixed(0)}</b>;
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-3 text-[11px]">
+      <span className="self-center text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
+      <div className="grid grid-cols-4 gap-x-2 tabular-nums">
+        <span>FL {cell(c.fl)}</span>
+        <span>FR {cell(c.fr)}</span>
+        <span>RL {cell(c.rl)}</span>
+        <span>RR {cell(c.rr)}</span>
+      </div>
+    </div>
+  );
+}
+
+
 
