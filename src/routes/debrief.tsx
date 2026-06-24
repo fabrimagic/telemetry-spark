@@ -20,6 +20,7 @@ import { BrakeManagementPanel } from "@/components/telemetry/BrakeManagementPane
 import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
 import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
+import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 
 import {
   Table,
@@ -542,6 +543,20 @@ function DebriefPage() {
             />
           </PaperPanel>
         </div>
+
+        {/* ---------- Driving Consistency (stint aggregate) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Performance" title="Driving Consistency">
+            <DrivingConsistencyPanel
+              file={file}
+              laps={laps}
+              absHits={absHits}
+              hasAbs={has.abs}
+            />
+          </PaperPanel>
+        </div>
+
+
 
 
         {/* ---------- ABS distribution (always-on, when no lap is selected) ---------- */}

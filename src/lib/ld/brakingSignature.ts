@@ -148,20 +148,22 @@ function lapThrottlePeak(lap: ResampledLap): number {
   return peak;
 }
 
-/** Compute the per-zone metrics for one resampled lap. Returns undefined when
- *  the lap doesn't cover the zone window (NaN values everywhere). */
-function metricsForLap(
-  lap: ResampledLap,
-  zone: BrakingZone,
-  hasThrottle: boolean,
-): {
+export interface ZoneLapMetrics {
   vMin: number;
   brakePeak: number;
   brakePointDist: number;
   releaseLength: number;
   throttleReopenDist: number;
   throttleReopenGradient: number;
-} | undefined {
+}
+
+/** Compute the per-zone metrics for one resampled lap. Returns undefined when
+ *  the lap doesn't cover the zone window (NaN values everywhere). */
+export function metricsForLap(
+  lap: ResampledLap,
+  zone: BrakingZone,
+  hasThrottle: boolean,
+): ZoneLapMetrics | undefined {
   const i0 = indexAtDistance(lap.grid, zone.startDist);
   const i1 = indexAtDistance(lap.grid, zone.endDist);
   if (i1 <= i0) return undefined;
@@ -322,8 +324,6 @@ export function buildBrakingSignature(
   }
 
   // Gate 1: Lap Distance + at least one brake channel.
-  const lapCh = resolveComparisonChannels; // (just to keep imports referenced)
-  void lapCh;
   const refGrid0 = buildReferenceGrid(file, laps.find((l) => l.isFastest && l.isValidLap) ?? laps[0]);
   if (!refGrid0) {
     return {
