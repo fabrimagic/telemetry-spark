@@ -334,6 +334,13 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Tyre Evolution (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Tyre Evolution">
+            <TyreEvolutionPanel file={file} laps={laps} />
+          </PaperPanel>
+        </div>
+
         {/* ---------- Lap selector / drill-down ---------- */}
         <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Drill-down" title="Lap Detail">
