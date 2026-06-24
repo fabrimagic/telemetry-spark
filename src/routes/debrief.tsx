@@ -14,6 +14,7 @@ import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
+import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
 import {
   Table,
   TableBody,
@@ -330,6 +331,13 @@ function DebriefPage() {
                 </TableBody>
               </Table>
             </div>
+          </PaperPanel>
+        </div>
+
+        {/* ---------- Tyre Evolution (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Tyre Evolution">
+            <TyreEvolutionPanel file={file} laps={laps} />
           </PaperPanel>
         </div>
 
