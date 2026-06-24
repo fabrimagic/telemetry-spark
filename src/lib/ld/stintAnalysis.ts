@@ -78,6 +78,8 @@ export interface StintAnalysis {
   setupChanges: SetupChange[];
   /** Median nominal lap length (m) computed from valid laps; undefined if not available. */
   refLapLength?: number;
+  /** Lap timing recovered from "lap time prev" + .ldx oracle check. */
+  timing: LapTimingResult;
   /** Whether each per-channel group has data; lets UI omit empty sections. */
   has: {
     speed: boolean;
