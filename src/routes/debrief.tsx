@@ -118,9 +118,11 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has } = analysis;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength } = analysis;
 
-  const selected = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
+  const selectedRow = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
+  // Prevent selecting an invalid lap as the "reference" detail view.
+  const selected = selectedRow && selectedRow.isValidLap ? selectedRow : null;
   const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
   const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
 
