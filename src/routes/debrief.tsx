@@ -18,6 +18,7 @@ import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
 import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
 import { BrakeManagementPanel } from "@/components/telemetry/BrakeManagementPanel";
 import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
+import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 
 import {
   Table,
@@ -521,6 +522,15 @@ function DebriefPage() {
             )}
           </PaperPanel>
         </div>
+
+        {/* ---------- Lap Comparison (spatial overlay vs fastest) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Performance" title="Lap Comparison">
+            <LapComparisonPanel file={file} laps={laps} selectedLap={selectedLap} />
+          </PaperPanel>
+        </div>
+
+
 
         {/* ---------- ABS distribution (always-on, when no lap is selected) ---------- */}
         {has.abs && has.lapDistance && selected === null && (
