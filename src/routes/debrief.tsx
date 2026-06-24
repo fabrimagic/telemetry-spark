@@ -16,6 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
 import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
+import { BrakeManagementPanel } from "@/components/telemetry/BrakeManagementPanel";
+import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
+
 import {
   Table,
   TableBody,
