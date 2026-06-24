@@ -544,6 +544,20 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Driving Consistency (stint aggregate) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Performance" title="Driving Consistency">
+            <DrivingConsistencyPanel
+              file={file}
+              laps={laps}
+              absHits={absHits}
+              hasAbs={has.abs}
+            />
+          </PaperPanel>
+        </div>
+
+
+
 
         {/* ---------- ABS distribution (always-on, when no lap is selected) ---------- */}
         {has.abs && has.lapDistance && selected === null && (
