@@ -228,7 +228,7 @@ export function buildStintAnalysis(
 
   /* ----- 1. Session conditions ----- */
   const conditions: SessionConditions = {};
-  const wet = findChannel(ch, "log b wet");
+  const wet = resolveChannel(ch, "wet");
   if (wet) {
     let on = 0;
     let tot = 0;
@@ -240,18 +240,18 @@ export function buildStintAnalysis(
     }
     if (tot > 0) conditions.wetPct = (on / tot) * 100;
   }
-  const airT = findChannel(ch, "pth t air");
+  const airT = resolveChannel(ch, "airTemp");
   if (airT) conditions.airTempAvg = meanValid(airT.values);
-  const hum = findChannel(ch, "pth r humidity");
+  const hum = resolveChannel(ch, "humidity");
   if (hum) conditions.humidityAvg = meanValid(hum.values);
-  const airP = findChannel(ch, "pth p air");
+  const airP = resolveChannel(ch, "airPressure");
   if (airP) conditions.airPressureAvg = meanValid(airP.values);
 
   /* ----- 2. Per-lap channels ----- */
-  const speed = findChannel(ch, "ground speed");
-  const rpm = findChannel(ch, "rpm");
-  const absCh = findChannel(ch, "abs active");
-  const lapDist = findChannel(ch, "lap distance");
+  const speed = resolveChannel(ch, "speed");
+  const rpm = resolveChannel(ch, "rpm");
+  const absCh = resolveChannel(ch, "absActive");
+  const lapDist = resolveChannel(ch, "lapDistance");
 
   // Native alarm channels (same convention as sessionDebrief — strict matching)
   const COUNTER_TOKENS = ["milisecond", "second", "minute", "hour", "counter", "timer", "distance"];
