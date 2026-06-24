@@ -78,6 +78,14 @@ export function TrackMap({
     outline.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ") +
     " Z";
 
+  if (!pathD || outline.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Errore: outline del tracciato vuoto (outline pts: {outline.length}).
+      </p>
+    );
+  }
+
   // Direction arrow geometry.
   let arrow: { x: number; y: number; angle: number } | null = null;
   if (directionHint) {
@@ -113,7 +121,7 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="hsl(var(--ink))"
+            stroke="#1a1a1a"
             strokeOpacity={0.15}
             strokeWidth={14}
             strokeLinejoin="round"
@@ -124,7 +132,7 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="hsl(var(--ink))"
+            stroke="#1a1a1a"
             strokeOpacity={1}
             strokeWidth={6}
             strokeLinejoin="round"
@@ -134,7 +142,7 @@ export function TrackMap({
           {/* Direction arrow */}
           {arrow && (
             <g transform={`translate(${arrow.x} ${arrow.y}) rotate(${arrow.angle})`}>
-              <polygon points="0,-7 20,0 0,7" fill="hsl(var(--race-red))" opacity={0.85} />
+              <polygon points="0,-7 20,0 0,7" fill="#e62e2e" opacity={0.85} />
             </g>
           )}
           {/* ABS markers (amber) */}
@@ -146,7 +154,7 @@ export function TrackMap({
                 r={7}
                 fill="#c97a00"
                 fillOpacity={0.85}
-                stroke="hsl(var(--card))"
+                stroke="#ffffff"
                 strokeWidth={1.5}
                 vectorEffect="non-scaling-stroke"
               >
@@ -162,8 +170,8 @@ export function TrackMap({
                 y={-8}
                 width={16}
                 height={16}
-                fill="hsl(var(--ink))"
-                stroke="hsl(var(--race-red))"
+                fill="#1a1a1a"
+                stroke="#e62e2e"
                 strokeWidth={2}
                 vectorEffect="non-scaling-stroke"
               >
@@ -176,8 +184,8 @@ export function TrackMap({
             cx={startFinish.x}
             cy={startFinish.y}
             r={9}
-            fill="hsl(var(--race-red))"
-            stroke="hsl(var(--card))"
+            fill="#e62e2e"
+            stroke="#ffffff"
             strokeWidth={2}
             vectorEffect="non-scaling-stroke"
           />
@@ -188,7 +196,7 @@ export function TrackMap({
                 cx={cursorPt.x}
                 cy={cursorPt.y}
                 r={12}
-                fill="hsl(var(--race-red))"
+                fill="#e62e2e"
                 fillOpacity={0.2}
                 vectorEffect="non-scaling-stroke"
               />
@@ -196,8 +204,8 @@ export function TrackMap({
                 cx={cursorPt.x}
                 cy={cursorPt.y}
                 r={6}
-                fill="hsl(var(--race-red))"
-                stroke="hsl(var(--card))"
+                fill="#e62e2e"
+                stroke="#ffffff"
                 strokeWidth={2}
                 vectorEffect="non-scaling-stroke"
               />
