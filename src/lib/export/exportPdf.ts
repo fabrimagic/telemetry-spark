@@ -521,9 +521,19 @@ export function exportSummaryPdf(
 
   let y = drawCover(doc, files, toolsets);
 
+  // Build toolset display-meta lookup once, mirroring ChannelTable.tsx.
+  const toolsetMetaByName = new Map<string, ToolsetDisplayMeta>();
+  for (const ts of toolsets) {
+    for (const d of ts.displayMeta) {
+      if (d.hasSignificantRange && d.minimum !== undefined && d.maximum !== undefined) {
+        toolsetMetaByName.set(normChannel(d.sourceName), d);
+      }
+    }
+  }
+
   for (const f of files) {
     y = ensureSpace(doc, 60, y + 10);
-    y = drawLdFile(doc, f, y);
+    y = drawLdFile(doc, f, toolsetMetaByName, y);
   }
   for (const ts of toolsets) {
     y = ensureSpace(doc, 60, y + 10);
