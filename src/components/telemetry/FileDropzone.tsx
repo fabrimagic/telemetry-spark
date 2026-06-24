@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
 
 interface Props {
   loading: boolean;
@@ -26,27 +25,42 @@ export function FileDropzone({ loading, progress, stage, error, onFiles }: Props
   );
 
   return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={handleDrop}
-      className={`rounded-lg border-2 border-dashed p-10 text-center transition-colors ${
-        dragOver ? "border-primary bg-primary/5" : "border-border bg-card"
-      }`}
-    >
-      <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-      <h3 className="mt-4 text-lg font-semibold">Carica file MoTeC (.ld + .ldx) o configurazione (.toolset)</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Trascina i file qui o seleziona dal disco. Tutto il parsing avviene nel browser — nessun upload.
-      </p>
-      <div className="mt-4 flex justify-center gap-2">
-        <Button
-          onClick={() => inputRef.current?.click()}
-          disabled={loading}
-          variant="default"
-        >
-          Scegli file
-        </Button>
+    <div className="relative">
+      {/* chequered ticker */}
+      <div className="chequered h-3 w-full" />
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`relative cursor-pointer border-x-2 border-b-2 border-ink bg-card p-12 text-center transition-colors ${
+          dragOver ? "bg-accent/40" : ""
+        }`}
+      >
+        {/* corner marks */}
+        <CornerMark className="left-2 top-2" />
+        <CornerMark className="right-2 top-2" />
+        <CornerMark className="left-2 bottom-2" />
+        <CornerMark className="right-2 bottom-2" />
+
+        <Upload className="mx-auto h-10 w-10 text-race-red" strokeWidth={2.5} />
+        <h2 className="mt-6 font-display text-5xl leading-none tracking-wider">
+          Drop to <span className="text-race-red">arm</span>
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          Trascina <code>.ld</code> · <code>.ldx</code> · <code>.toolset</code> oppure clicca per
+          selezionare. Tutto resta nel browser.
+        </p>
+
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <ChannelBadge color="red">.LD</ChannelBadge>
+          <ChannelBadge color="red">.LDX</ChannelBadge>
+          <ChannelBadge color="yellow">.TOOLSET</ChannelBadge>
+        </div>
+
         <input
           ref={inputRef}
           type="file"
@@ -59,16 +73,54 @@ export function FileDropzone({ loading, progress, stage, error, onFiles }: Props
             e.target.value = "";
           }}
         />
+
+        {loading && (
+          <div className="mx-auto mt-8 max-w-md space-y-2">
+            <div className="flex justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span>{stage}</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-1.5 [&>div]:bg-race-red" />
+          </div>
+        )}
+        {error && (
+          <div className="mx-auto mt-6 max-w-md border-l-4 border-race-red bg-race-red/10 px-3 py-2 text-left text-sm">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-race-red">
+              Red flag
+            </span>
+            <p className="text-foreground">{error}</p>
+          </div>
+        )}
       </div>
-      {loading && (
-        <div className="mt-6 space-y-2">
-          <Progress value={progress} />
-          <p className="text-xs text-muted-foreground">{stage} — {progress}%</p>
-        </div>
-      )}
-      {error && (
-        <p className="mt-4 text-sm text-destructive">⚠ {error}</p>
-      )}
+      <div className="chequered h-3 w-full" />
     </div>
   );
+}
+
+function CornerMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none absolute h-3 w-3 border-race-red ${className ?? ""}`}
+      style={{
+        borderTopWidth: className?.includes("top") ? 2 : 0,
+        borderBottomWidth: className?.includes("bottom") ? 2 : 0,
+        borderLeftWidth: className?.includes("left") ? 2 : 0,
+        borderRightWidth: className?.includes("right") ? 2 : 0,
+      }}
+    />
+  );
+}
+
+function ChannelBadge({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: "red" | "yellow";
+}) {
+  const cls =
+    color === "red"
+      ? "border-race-red text-race-red"
+      : "border-ink bg-hazard text-ink";
+  return <span className={`pit-pill ${cls}`}>{children}</span>;
 }

@@ -5,27 +5,30 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
+ * MoTeC Telemetry Analyzer — Pit-wall design system.
  *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
+ * Palette (locked):
+ *   bone        #f3efe7
+ *   ink         #1a1a1a
+ *   race-red    #d40000
+ *   hazard      #ffce00
+ *   carbon      #0e0e10 (header/sidebar)
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Typography (locked):
+ *   --font-display : Bebas Neue   (UPPERCASE, wide tracking, oversized data)
+ *   --font-sans    : Barlow       (body, UI, labels)
+ *   --font-mono    : JetBrains Mono (numbers, lap times, codes)
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+  --radius-3xl: 12px;
+  --radius-4xl: 16px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -46,90 +49,72 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Race-specific tokens */
+  --color-bone: var(--bone);
+  --color-ink: var(--ink);
+  --color-race-red: var(--race-red);
+  --color-hazard: var(--hazard);
+  --color-carbon: var(--carbon);
+  --color-pit-grey: var(--pit-grey);
+
+  --font-display: "Bebas Neue", "Barlow Condensed", "Impact", sans-serif;
+  --font-sans: "Barlow", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Menlo", monospace;
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --radius: 0.25rem;
+
+  /* Race palette in oklch */
+  --bone: oklch(0.962 0.012 85);            /* #f3efe7 */
+  --ink: oklch(0.207 0 0);                  /* #1a1a1a */
+  --race-red: oklch(0.572 0.231 27);        /* #d40000 */
+  --hazard: oklch(0.875 0.18 92);           /* #ffce00 */
+  --carbon: oklch(0.155 0.005 80);          /* #0e0e10 */
+  --pit-grey: oklch(0.55 0 0);
+
+  --background: var(--bone);
+  --foreground: var(--ink);
+  --card: oklch(0.99 0.005 85);
+  --card-foreground: var(--ink);
+  --popover: oklch(0.99 0.005 85);
+  --popover-foreground: var(--ink);
+  --primary: var(--race-red);
+  --primary-foreground: var(--bone);
+  --secondary: oklch(0.92 0.01 85);
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.93 0.008 85);
+  --muted-foreground: oklch(0.45 0.01 80);
+  --accent: var(--hazard);
+  --accent-foreground: var(--ink);
+  --destructive: var(--race-red);
+  --destructive-foreground: var(--bone);
+  --border: oklch(0.85 0.008 85);
+  --input: oklch(0.85 0.008 85);
+  --ring: var(--race-red);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
+  --background: var(--carbon);
+  --foreground: var(--bone);
+  --card: oklch(0.21 0.005 80);
+  --card-foreground: var(--bone);
+  --popover: oklch(0.21 0.005 80);
+  --popover-foreground: var(--bone);
+  --primary: var(--race-red);
+  --primary-foreground: var(--bone);
+  --secondary: oklch(0.27 0.005 80);
+  --secondary-foreground: var(--bone);
+  --muted: oklch(0.25 0.005 80);
+  --muted-foreground: oklch(0.7 0.01 80);
+  --accent: var(--hazard);
+  --accent-foreground: var(--carbon);
+  --destructive: var(--race-red);
+  --destructive-foreground: var(--bone);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --ring: var(--race-red);
 }
 
 @layer base {
@@ -137,8 +122,124 @@
     border-color: var(--color-border);
   }
 
-  body {
+  html, body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "tnum";
   }
+
+  /* Subtle pit-paper grid texture */
+  body {
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  code, .num {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+  }
+}
+
+/* ---------- Race-day utilities ---------- */
+
+@utility hazard-stripe {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-hazard) 0 14px,
+    var(--color-ink) 14px 28px
+  );
+}
+
+@utility hazard-edge {
+  /* hazard tape strip used as top border of warning blocks */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-hazard) 0 10px,
+    var(--color-ink) 10px 20px
+  );
+}
+
+@utility chequered {
+  background-image:
+    linear-gradient(45deg, var(--color-ink) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-ink) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-ink) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-ink) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+@utility carbon-bg {
+  background-color: var(--color-carbon);
+  background-image:
+    linear-gradient(135deg, color-mix(in oklab, var(--bone) 4%, transparent) 0 1px, transparent 1px 6px),
+    linear-gradient(45deg, color-mix(in oklab, var(--bone) 4%, transparent) 0 1px, transparent 1px 6px);
+  background-size: 6px 6px;
+}
+
+@utility diag-stripe-red {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0 65%,
+    var(--color-race-red) 65% 68%,
+    transparent 68% 100%
+  );
+}
+
+@utility paper-card {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-ink);
+  box-shadow: 4px 4px 0 0 var(--color-ink);
+}
+
+@utility pit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+
+/* ---------- Hero ribbon animation ---------- */
+
+@keyframes ribbon-wipe {
+  0% { transform: scaleX(0); transform-origin: left; }
+  100% { transform: scaleX(1); transform-origin: left; }
+}
+
+@utility ribbon-wipe {
+  animation: ribbon-wipe 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pulse-hazard {
+  0%, 100% { background-color: color-mix(in oklab, var(--hazard) 18%, transparent); }
+  50% { background-color: color-mix(in oklab, var(--hazard) 38%, transparent); }
+}
+
+@utility pulse-hazard {
+  animation: pulse-hazard 2.2s ease-in-out infinite;
+}
+
+@keyframes blink-led {
+  0%, 60%, 100% { opacity: 1; }
+  70%, 90% { opacity: 0.25; }
+}
+
+@utility blink-led {
+  animation: blink-led 1.6s steps(1, end) infinite;
 }
