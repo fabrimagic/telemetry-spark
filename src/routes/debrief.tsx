@@ -451,16 +451,28 @@ function DebriefPage() {
                 <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
               ) : (
                 <ul className="space-y-1 font-mono text-xs">
-                  {lapChanges.map((c) => (
-                    <li key={c.id} className="flex flex-wrap gap-x-3">
-                      <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
-                      <span className="font-bold">{c.channelLabel}</span>
-                      <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
-                    </li>
-                  ))}
+                  {lapChanges.map((c) => {
+                    const active = setupMark?.label === c.channelLabel;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => focusSetupChange(c)}
+                          className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
+                          title="Localizza sulla mappa"
+                        >
+                          <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                          <span className="font-bold">{c.channelLabel}</span>
+                          <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
+                          <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Section>
+
           </div>
         )}
       </PaperPanel>
