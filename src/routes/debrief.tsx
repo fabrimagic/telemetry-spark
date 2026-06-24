@@ -710,9 +710,19 @@ function AbsDistributionBars({
 
 /* ============ Lap Channel Traces (drill-down chart) ============ */
 
-function findChannel(file: LdFile, aliases: string[]): Channel | undefined {
+/** Local convenience: resolve by an optional logical key, with a substring
+ *  fallback list of alias strings for the rare case where the resolver
+ *  catalogue doesn't yet cover the channel of interest. */
+function findChannel(
+  file: LdFile,
+  logical: LogicalKey | null,
+  aliases: string[] = [],
+): Channel | undefined {
+  if (logical) {
+    const hit = resolveChannel(file.channels, logical);
+    if (hit) return hit;
+  }
   const wanted = aliases.map(norm);
-  // exact first, then substring
   for (const want of wanted) {
     const exact = file.channels.find((c) => norm(c.name) === want && !c.empty);
     if (exact) return exact;
