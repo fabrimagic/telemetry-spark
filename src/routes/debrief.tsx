@@ -179,9 +179,9 @@ function DebriefPage() {
             {visibleLaps.length}/{laps.length}
           </span>
         </div>
-        <ScrollArea className="max-h-[520px]">
+        <div className="max-h-[520px] overflow-y-auto border border-ink/20">
           <Table>
-            <TableHeader className="sticky top-0 bg-card">
+            <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
               <TableRow className="border-b border-ink/30">
                 <TH>Lap</TH>
                 <TH align="right">Time</TH>
@@ -225,7 +225,7 @@ function DebriefPage() {
               ))}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       </PaperPanel>
 
       {/* ---------- Lap selector ---------- */}
