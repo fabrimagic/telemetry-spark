@@ -451,28 +451,45 @@ function Quad({ label, unit, children }: { label: string; unit: string; children
   );
 }
 
-/* Simple histogram of ABS hits along normalized lap distance. */
-function AbsDistributionBars({ hits }: { hits: { lapDistance?: number }[] }) {
-  const withDist = hits.filter((h): h is { lapDistance: number } => h.lapDistance !== undefined && Number.isFinite(h.lapDistance));
-  if (withDist.length === 0) {
+/* Histogram of ABS hits projected onto a single normalised lap (0..refLapLength). */
+function AbsDistributionBars({
+  hits,
+  refLapLength,
+}: {
+  hits: { lapDistanceNorm?: number; inValidLap?: boolean }[];
+  refLapLength?: number;
+}) {
+  if (!refLapLength || refLapLength <= 0) {
     return (
       <p className="font-mono text-xs text-muted-foreground">
-        Nessuna attivazione ABS con lap distance disponibile.
+        Lunghezza di riferimento del giro non disponibile (nessun giro valido con Lap Distance).
       </p>
     );
   }
-  const maxDist = Math.max(...withDist.map((h) => h.lapDistance));
+  const withDist = hits.filter(
+    (h): h is { lapDistanceNorm: number; inValidLap: boolean } =>
+      h.inValidLap === true &&
+      h.lapDistanceNorm !== undefined &&
+      Number.isFinite(h.lapDistanceNorm),
+  );
+  if (withDist.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Nessuna attivazione ABS nei giri validi con Lap Distance disponibile.
+      </p>
+    );
+  }
   const BINS = 20;
   const bin = new Array(BINS).fill(0) as number[];
   for (const h of withDist) {
-    const idx = Math.min(BINS - 1, Math.floor((h.lapDistance / maxDist) * BINS));
+    const idx = Math.min(BINS - 1, Math.floor((h.lapDistanceNorm / refLapLength) * BINS));
     bin[idx]++;
   }
   const peak = Math.max(...bin, 1);
   return (
     <div className="space-y-2 font-mono">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-        Distribuzione attivazioni ABS · {withDist.length} eventi · max distance {fmt(maxDist, 0)} m
+        Distribuzione ABS · giro normalizzato · lungh. rif. {fmt(refLapLength, 0)} m · {withDist.length} eventi
       </div>
       <div className="flex h-24 items-end gap-1 border-b border-ink/30">
         {bin.map((v, i) => (
@@ -481,7 +498,7 @@ function AbsDistributionBars({ hits }: { hits: { lapDistance?: number }[] }) {
       </div>
       <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
         <span>0 m</span>
-        <span>{fmt(maxDist, 0)} m</span>
+        <span>{fmt(refLapLength, 0)} m</span>
       </div>
     </div>
   );
