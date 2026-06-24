@@ -212,7 +212,7 @@ function DebriefPage() {
                     L{r.lap}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    {fmtLapTime(r.durationS)}
+                    {fmtLapTime(r.durationS, verified)}
                   </TableCell>
                   {has.speed && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
