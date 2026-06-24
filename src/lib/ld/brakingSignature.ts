@@ -48,6 +48,15 @@ export interface ZoneAbs {
   meanDurationS: number;
 }
 
+/** One per-lap, per-zone measurement. Values are `undefined` when the lap
+ *  did not yield a valid sample for that metric in that zone (lap that
+ *  skips the zone, missing data, etc.) — NEVER interpolated. */
+export interface PerLapZoneEntry {
+  lap: number;
+  vMin?: number;
+  brakePointDist?: number;
+}
+
 export interface SignatureRow {
   zone: BrakingZone;
   /** Conventional label (T1, T2, …). */
@@ -67,6 +76,11 @@ export interface SignatureRow {
   /** Mean slope of throttle (%/m) over the reopen-to-end window. */
   throttleReopenGradient: ZoneStat;
   abs: ZoneAbs;
+  /** Per-lap measured values (one entry per valid lap, in chronological
+   *  order; same order/length as BrakingSignatureResult.validLapNumbers).
+   *  Exposes the values that aggregate stats are computed from, so the
+   *  heatmap can render the underlying matrix without recomputing. */
+  perLapValues: PerLapZoneEntry[];
 }
 
 export interface BrakingSignatureResult {
@@ -78,6 +92,9 @@ export interface BrakingSignatureResult {
   refLapLength?: number;
   /** Number of valid laps actually resampled. */
   lapsConsidered?: number;
+  /** Ordered (chronological) lap numbers actually resampled. Aligned 1:1
+   *  with each row's `perLapValues`. */
+  validLapNumbers?: number[];
   /** Per-zone aggregated rows. */
   rows?: SignatureRow[];
   /** Whether throttle channel was available (controls UI columns). */
