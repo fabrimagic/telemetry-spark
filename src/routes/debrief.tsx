@@ -345,6 +345,22 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Brake Management (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Brake Management">
+            <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+          </PaperPanel>
+        </div>
+
+        {/* ---------- Engine Health (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Engine Health">
+            <EngineHealthPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+          </PaperPanel>
+        </div>
+
+
+
         {/* ---------- Lap selector / drill-down ---------- */}
         <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Drill-down" title="Lap Detail">
