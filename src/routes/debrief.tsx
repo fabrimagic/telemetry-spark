@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
 import { buildStintAnalysis, type LapRow, type LapTempCorner } from "@/lib/ld/stintAnalysis";
+import type { LapTimingResult } from "@/lib/ld/lapTiming";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
