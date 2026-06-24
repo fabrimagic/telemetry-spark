@@ -357,6 +357,7 @@ export function buildStintAnalysis(
     const durValid = isValidDuration(lap.duration);
     return {
       lap: lap.index,
+      absoluteLap: lap.absoluteIndex,
       tStart: lap.tStart,
       tEnd: lap.tEnd,
       durationS: lap.duration,
