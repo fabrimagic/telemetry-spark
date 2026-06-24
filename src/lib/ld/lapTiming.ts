@@ -49,9 +49,6 @@ const MIN_PLAUSIBLE_S = 20;
 const MAX_PLAUSIBLE_S = 900;
 const STABLE_SAMPLES = 5;
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 function isPlausible(v: number): boolean {
   return Number.isFinite(v) && v > MIN_PLAUSIBLE_S && v < MAX_PLAUSIBLE_S;
