@@ -125,11 +125,32 @@ interface RadarDatum {
   available: boolean;
 }
 
-/** Per-axis range = [min, max] of (first.mean, second.mean) with a small
- *  symmetric padding so values never collapse on the rim/centre. Both halves
- *  are projected to [0,1] in that axis. Returns null/undefined when the
- *  metric is unavailable for the zone (vertex falls to 0.5 with "n/d" label). */
+/** Shared-scale radar projection.
+ *  All axes carry the same metric, so we compute a single [globalMin,
+ *  globalMax] range over every available (first.mean, second.mean) across
+ *  all zones, pad it by 10%, and project every value into [0,1] on that
+ *  shared scale. This makes the radial distance between the two halves on
+ *  each axis proportional to the REAL drift of that zone. Unavailable
+ *  zones get a neutral vertex (null → centre upstream) without inventing
+ *  values. */
 function buildRadarData(drift: ZoneDrift[], key: RadarMetricKey): RadarDatum[] {
+  const reals: number[] = [];
+  for (const d of drift) {
+    const m = pickMetric(d, key);
+    if (!m.available) continue;
+    if (Number.isFinite(m.first.mean)) reals.push(m.first.mean);
+    if (Number.isFinite(m.second.mean)) reals.push(m.second.mean);
+  }
+  let lo = reals.length > 0 ? Math.min(...reals) : 0;
+  let hi = reals.length > 0 ? Math.max(...reals) : 1;
+  let span = hi - lo;
+  if (span === 0) span = Math.max(1e-6, Math.abs(hi) * 0.05 + 1e-6);
+  const pad = span * 0.1;
+  lo -= pad;
+  hi += pad;
+  const denom = hi - lo;
+  const proj = (v: number) => (denom > 0 ? (v - lo) / denom : 0.5);
+
   return drift.map((d) => {
     const m = pickMetric(d, key);
     if (!m.available || !Number.isFinite(m.first.mean) || !Number.isFinite(m.second.mean)) {
@@ -145,15 +166,6 @@ function buildRadarData(drift: ZoneDrift[], key: RadarMetricKey): RadarDatum[] {
     }
     const a = m.first.mean;
     const b = m.second.mean;
-    const lo = Math.min(a, b);
-    const hi = Math.max(a, b);
-    let span = hi - lo;
-    if (span === 0) span = Math.max(1e-6, Math.abs(hi) * 0.05 + 1e-6);
-    const pad = span * 0.25;
-    const axisLo = lo - pad;
-    const axisHi = hi + pad;
-    const denom = axisHi - axisLo;
-    const proj = (v: number) => (denom > 0 ? (v - axisLo) / denom : 0.5);
     return {
       zone: d.label,
       first: proj(a),
