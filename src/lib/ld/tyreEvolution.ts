@@ -92,12 +92,12 @@ interface RawSeries {
 
 function buildRawSeries(
   channels: Channel[],
-  baseNorm: string,
+  baseKey: "tyreTemp" | "tyrePress",
   validLaps: LapRow[],
 ): Record<WheelKey, RawSeries> {
   const out = {} as Record<WheelKey, RawSeries>;
   for (const w of WHEELS) {
-    const ch = findChannel(channels, `${baseNorm} ${w}`);
+    const ch = resolveChannel(channels, `${baseKey}.${w}` as LogicalKey);
     if (!ch) {
       out[w] = { channelFound: false, perLap: validLaps.map(() => undefined), nonZeroFraction: 0 };
       continue;
