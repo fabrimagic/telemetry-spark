@@ -14,7 +14,7 @@ export function MainTabs() {
             key={t.to}
             to={t.to}
             activeOptions={{ exact: true }}
-            className="rounded-sm px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-[hsl(var(--race-red)/0.12)] data-[status=active]:text-[hsl(var(--race-red))]"
+            className="rounded-sm px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-primary/10 data-[status=active]:text-primary"
           >
             {t.label}
           </Link>
