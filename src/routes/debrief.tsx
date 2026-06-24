@@ -272,6 +272,15 @@ function DebriefPage() {
               {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
+            {/* Channel traces vs lap distance */}
+            <Section title="Channel Traces (vs Lap Distance)">
+              <LapChannelTraces
+                file={file}
+                lap={selected}
+                refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+              />
+            </Section>
+
             {/* ABS hits */}
             {has.abs && (
               <Section title="ABS Activations">
