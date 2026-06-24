@@ -133,74 +133,72 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
   };
 
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <section className="paper-card">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/30 px-5 py-4">
         <div>
-          <h2 className="text-base font-semibold">Configurazione vettura (.toolset)</h2>
-          <p className="text-xs text-muted-foreground">
-            {toolset.fileName} · {formatBytes(toolset.byteLength)}
-            {toolset.deviceHint ? ` · device: ${toolset.deviceHint}` : ""}
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ◉ Vehicle config // .toolset
+          </div>
+          <h2 className="font-display text-3xl leading-none tracking-wider">
+            {toolset.fileName}
+          </h2>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            {formatBytes(toolset.byteLength)}
+            {toolset.deviceHint ? ` · device ${toolset.deviceHint}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary">{toolset.canBuses.length} bus CAN</Badge>
-          <Badge variant="secondary">{toolset.channels.length} canali</Badge>
-          <Badge variant="secondary">{toolset.displayMeta.length} con range/allarme</Badge>
-          <Badge variant="secondary">{toolset.ioSensors.length} con I/O</Badge>
-          <Badge variant="secondary">{toolset.calibrationHints.length} hint calibrazione</Badge>
-          <Badge variant="secondary">{toolset.versions.length} versioni FW/HW</Badge>
-          <Badge variant="secondary">{toolset.alarms.length} allarmi</Badge>
+        <div className="flex max-w-xl flex-wrap justify-end gap-1.5">
+          <CountChip label="CAN" value={toolset.canBuses.length} />
+          <CountChip label="Channels" value={toolset.channels.length} />
+          <CountChip label="Range/Alarm" value={toolset.displayMeta.length} tone="red" />
+          <CountChip label="I/O" value={toolset.ioSensors.length} />
+          <CountChip label="Calib" value={toolset.calibrationHints.length} />
+          <CountChip label="FW/HW" value={toolset.versions.length} />
+          <CountChip label="Alarms" value={toolset.alarms.length} tone="yellow" />
           {ldFiles.length > 0 && (
-            <Badge variant="outline">
-              {enrichableCount} canali .ld arricchibili con metadati .toolset
-            </Badge>
+            <CountChip label="LD enrichable" value={enrichableCount} tone="outline" />
           )}
         </div>
-      </div>
+      </header>
 
-      {/* CAN buses */}
+      <div className="space-y-6 p-5">
+
+      {/* CAN buses — 8-cell pit-board grid */}
       {toolset.canBuses.length > 0 && (
-        <div className="mb-4">
-          <h3 className="mb-2 text-sm font-semibold">Struttura CAN</h3>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-20">Bus</TableHead>
-                  <TableHead>Etichetta dominio</TableHead>
-                  <TableHead className="text-right">Canali associabili</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {toolset.canBuses.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">CAN {b.id}</TableCell>
-                    <TableCell>
-                      {b.label || <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {b.label ? (
-                        b.channelCount
-                      ) : (
-                        <span className="text-muted-foreground">n/d</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <div>
+          <SectionTitle eyebrow="Network" title="CAN Bus Topology" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {toolset.canBuses.map((b) => (
+              <div
+                key={b.id}
+                className="group relative border border-ink bg-card p-3 transition-colors hover:bg-hazard/10"
+              >
+                <div className="flex items-baseline justify-between">
+                  <span className="font-display text-3xl leading-none tracking-widest text-race-red">
+                    CAN{b.id}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {b.label ? `${b.channelCount} ch` : "n/d"}
+                  </span>
+                </div>
+                <div className="mt-2 truncate font-mono text-xs uppercase tracking-wider text-foreground">
+                  {b.label || "—"}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Channels with range & alarm */}
       {toolset.displayMeta.length > 0 && (
-        <div className="mb-4">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Canali con range e allarmi</h3>
-            <div className="text-xs text-muted-foreground">
-              {toolset.dashChannelBlocks} blocchi dash:Channel · {toolset.displayMeta.length} unici ·{" "}
-              {significantCount} con range significativo
+        <div>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <SectionTitle eyebrow="Telemetry · Range/Alarm" title="Canali con range e allarmi" />
+            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {toolset.dashChannelBlocks} blocchi · {toolset.displayMeta.length} unici ·{" "}
+              {significantCount} significativi
             </div>
           </div>
           <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -208,7 +206,7 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
               placeholder="Filtra per nome, categoria, unità…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="max-w-md"
+              className="max-w-md rounded-none border-ink/40 font-mono text-xs uppercase tracking-wider"
             />
             <div className="flex items-center gap-2">
               <Checkbox
@@ -216,67 +214,81 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
                 checked={onlySignificant}
                 onCheckedChange={(v) => setOnlySignificant(Boolean(v))}
               />
-              <Label htmlFor="significant" className="cursor-pointer text-xs">
-                Solo range significativi (esclude placeholder 0–1000)
+              <Label
+                htmlFor="significant"
+                className="cursor-pointer font-mono text-[10px] uppercase tracking-widest"
+              >
+                Solo range significativi
               </Label>
             </div>
           </div>
-          <div className="rounded-md border">
+          <div className="border border-ink/30">
             <ScrollArea className="h-[420px]">
               <Table>
                 <TableHeader className="sticky top-0 bg-card">
-                  <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort("name")}>
-                      Nome {sortIndicator(sortKey, sortDir, "name")}
+                  <TableRow className="border-b border-ink/30">
+                    <TableHead
+                      className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-foreground"
+                      onClick={() => toggleSort("name")}
+                    >
+                      Name {sortIndicator(sortKey, sortDir, "name")}
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer"
+                      className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-foreground"
                       onClick={() => toggleSort("category")}
                     >
-                      Categoria {sortIndicator(sortKey, sortDir, "category")}
+                      Cat {sortIndicator(sortKey, sortDir, "category")}
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer text-right"
+                      className="cursor-pointer text-right font-mono text-[10px] uppercase tracking-widest text-foreground"
                       onClick={() => toggleSort("range")}
                     >
                       Range {sortIndicator(sortKey, sortDir, "range")}
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer text-right"
+                      className="cursor-pointer text-right font-mono text-[10px] uppercase tracking-widest text-foreground"
                       onClick={() => toggleSort("alarm")}
                     >
-                      Allarme {sortIndicator(sortKey, sortDir, "alarm")}
+                      Alarm {sortIndicator(sortKey, sortDir, "alarm")}
                     </TableHead>
-                    <TableHead className="text-right">Unità</TableHead>
-                    <TableHead className="text-right">Decimali</TableHead>
+                    <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">
+                      Unit
+                    </TableHead>
+                    <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">
+                      Dec
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMeta.map((m) => (
+                  {filteredMeta.map((m, i) => (
                     <TableRow
                       key={m.sourceName}
-                      className={m.alarmEnabled ? "bg-yellow-500/10" : undefined}
+                      className={`border-b border-ink/10 ${
+                        m.alarmEnabled
+                          ? "pulse-hazard"
+                          : i % 2
+                            ? "bg-muted/30"
+                            : ""
+                      }`}
                     >
                       <TableCell className="font-mono text-xs">{m.sourceName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                           {m.category}
-                        </Badge>
+                        </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      <TableCell className="text-right font-mono text-xs tabular-nums">
                         {fmtRange(m.minimum, m.maximum)}
                         {!m.hasSignificantRange &&
                           m.minimum !== undefined &&
                           m.maximum !== undefined && (
-                            <span className="ml-1 text-[10px] text-muted-foreground">
-                              (placeholder)
-                            </span>
+                            <span className="ml-1 text-[10px] opacity-60">(default)</span>
                           )}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      <TableCell className="text-right font-mono text-xs tabular-nums">
                         {m.alarmEnabled ? (
-                          <span className="text-yellow-700 dark:text-yellow-300">
-                            {fmtRange(m.alarmMinimum, m.alarmMaximum)}
+                          <span className="font-bold text-ink">
+                            ⚑ {fmtRange(m.alarmMinimum, m.alarmMaximum)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">
@@ -284,8 +296,10 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-xs">{m.userUnit || "—"}</TableCell>
-                      <TableCell className="text-right text-xs">
+                      <TableCell className="text-right font-mono text-xs">
+                        {m.userUnit || "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums">
                         {m.decimalPlaces ?? "—"}
                       </TableCell>
                     </TableRow>
@@ -299,35 +313,37 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
 
       {/* I/O sensors */}
       {toolset.ioSensors.length > 0 && (
-        <div className="mb-4">
-          <h3 className="mb-2 text-sm font-semibold">Sensori fisici (I/O)</h3>
+        <div>
+          <SectionTitle eyebrow="Hardware" title="Sensori fisici · I/O" />
           <Input
             placeholder="Filtra…"
             value={ioQ}
             onChange={(e) => setIoQ(e.target.value)}
-            className="mb-2 max-w-md"
+            className="mb-2 max-w-md rounded-none border-ink/40 font-mono text-xs uppercase tracking-wider"
           />
-          <div className="rounded-md border">
+          <div className="border border-ink/30">
             <ScrollArea className="max-h-[320px]">
               <Table>
                 <TableHeader className="sticky top-0 bg-card">
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrizione</TableHead>
-                    <TableHead>Porta</TableHead>
-                    <TableHead>Categoria</TableHead>
+                  <TableRow className="border-b border-ink/30">
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Name</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Description</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Port</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Cat</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredIo.map((s) => (
-                    <TableRow key={s.name}>
+                  {filteredIo.map((s, i) => (
+                    <TableRow key={s.name} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/30" : ""}`}>
                       <TableCell className="font-mono text-xs">{s.name}</TableCell>
                       <TableCell className="text-sm">{s.description}</TableCell>
-                      <TableCell className="font-mono text-xs">{s.port}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
+                        <span className="pit-pill border-race-red text-race-red">{s.port}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                           {s.category}
-                        </Badge>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -340,31 +356,31 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
 
       {/* Calibration hints */}
       {toolset.calibrationHints.length > 0 && (
-        <div className="mb-4 rounded-md border bg-muted/20 p-3">
-          <h3 className="mb-2 text-sm font-semibold">Hint di calibrazione</h3>
-          <p className="mb-2 text-[11px] text-muted-foreground">
-            Riferimenti testuali grezzi, non applicati come fattori numerici.
+        <div className="border border-ink/30 bg-muted/30 p-4">
+          <SectionTitle eyebrow="Reference · raw" title="Hint di calibrazione" />
+          <p className="-mt-2 mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Testo grezzo · non applicato come fattore numerico
           </p>
-          <ul className="space-y-1 text-xs">
+          <ul className="space-y-1.5">
             {toolset.calibrationHints.map((h) => (
               <li key={h}>
-                <code className="rounded bg-muted px-1 py-0.5">{h}</code>
+                <code className="border border-ink/30 bg-card px-2 py-0.5 text-xs">{h}</code>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* Firmware / Hardware versions */}
+      {/* Firmware / Hardware */}
       {toolset.versions.length > 0 && (
-        <details className="mb-4 rounded-md border bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Firmware / Hardware ({toolset.versions.length})
+        <details className="border border-ink/30 bg-muted/20 p-4">
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ◉ Firmware / Hardware · {toolset.versions.length}
           </summary>
-          <ul className="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
+          <ul className="mt-3 max-h-64 space-y-1 overflow-auto">
             {toolset.versions.map((v) => (
               <li key={v}>
-                <code className="rounded bg-muted px-1 py-0.5">{v}</code>
+                <code className="border border-ink/20 bg-card px-2 py-0.5 text-xs">{v}</code>
               </li>
             ))}
           </ul>
@@ -373,37 +389,37 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
 
       {/* All channels */}
       {toolset.channels.length > 0 && (
-        <details className="mb-4 rounded-md border p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Tutti i canali di configurazione ({toolset.channels.length})
+        <details className="border border-ink/30 p-4">
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ◉ Tutti i canali di configurazione · {toolset.channels.length}
           </summary>
           <Input
             placeholder="Filtra…"
             value={chQ}
             onChange={(e) => setChQ(e.target.value)}
-            className="mb-2 mt-2 max-w-md"
+            className="mb-2 mt-3 max-w-md rounded-none border-ink/40 font-mono text-xs uppercase tracking-wider"
           />
-          <div className="rounded-md border">
+          <div className="border border-ink/30">
             <ScrollArea className="h-[360px]">
               <Table>
                 <TableHeader className="sticky top-0 bg-card">
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrizione</TableHead>
-                    <TableHead>Categoria</TableHead>
+                  <TableRow className="border-b border-ink/30">
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Name</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Description</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Cat</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredChannels.map((c) => (
-                    <TableRow key={c.name}>
+                  {filteredChannels.map((c, i) => (
+                    <TableRow key={c.name} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/30" : ""}`}>
                       <TableCell className="font-mono text-xs">{c.name}</TableCell>
                       <TableCell className="text-sm">
                         {c.description ?? <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                           {c.category}
-                        </Badge>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -416,48 +432,46 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
 
       {/* Alarms */}
       {toolset.alarms.length > 0 && (
-        <details className="mb-4 rounded-md border bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Allarmi / diagnostica ({toolset.alarms.length})
+        <details className="border border-ink/30 bg-hazard/10 p-4">
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+            ⚑ Allarmi / diagnostica · {toolset.alarms.length}
           </summary>
-          <ul className="mt-2 max-h-64 space-y-1 overflow-auto text-xs text-muted-foreground">
+          <ul className="mt-3 max-h-64 space-y-1 overflow-auto text-xs text-muted-foreground">
             {toolset.alarms.map((a) => (
-              <li key={a}>{a}</li>
+              <li key={a}>· {a}</li>
             ))}
           </ul>
         </details>
       )}
 
       {/* Package parts */}
-      <details className="mb-4 rounded-md border p-3">
-        <summary className="cursor-pointer text-sm font-semibold">
-          Parti del package OPC ({toolset.parts.length})
+      <details className="border border-ink/30 p-4">
+        <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+          ◉ Package OPC · {toolset.parts.length} parti
         </summary>
-        <div className="mt-2 rounded-md border">
+        <div className="mt-3 border border-ink/30">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Compressione</TableHead>
-                <TableHead className="text-right">Dim.</TableHead>
-                <TableHead>Stato</TableHead>
+              <TableRow className="border-b border-ink/30">
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Name</TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Compr</TableHead>
+                <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">Size</TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {toolset.parts.map((p) => (
-                <TableRow key={p.name}>
+              {toolset.parts.map((p, i) => (
+                <TableRow key={p.name} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/30" : ""}`}>
                   <TableCell className="font-mono text-xs">{p.name}</TableCell>
-                  <TableCell className="text-xs">{p.methodLabel}</TableCell>
-                  <TableCell className="text-right text-xs">{formatBytes(p.size)}</TableCell>
+                  <TableCell className="font-mono text-xs">{p.methodLabel}</TableCell>
+                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                    {formatBytes(p.size)}
+                  </TableCell>
                   <TableCell>
                     {p.extracted ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        estratto
-                      </Badge>
+                      <span className="pit-pill border-ink text-ink">extracted</span>
                     ) : (
-                      <Badge variant="outline" className="text-[10px]">
-                        non estratto
-                      </Badge>
+                      <span className="pit-pill border-race-red text-race-red">skipped</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -467,21 +481,67 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
         </div>
       </details>
 
-      {/* Not extracted */}
-      <div className="rounded-md border border-yellow-500/40 bg-yellow-500/5 p-3">
-        <h3 className="mb-2 text-sm font-semibold text-yellow-700 dark:text-yellow-300">
-          Non estratto
-        </h3>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-          {toolset.notExtracted.map((n, i) => (
-            <li key={i}>{n}</li>
-          ))}
-        </ul>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Stringhe leggibili totali in setup.binary: {toolset.setupStringCount}.
-        </p>
+
+      {/* Not extracted — hazard tape block */}
+      <div className="relative border-2 border-ink bg-card">
+        <div className="hazard-edge h-2 w-full" />
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+              ⚑ Yellow flag
+            </span>
+            <h3 className="font-display text-xl leading-none tracking-wider">Non estratto</h3>
+          </div>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            {toolset.notExtracted.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Stringhe leggibili totali in setup.binary · {toolset.setupStringCount}
+          </p>
+        </div>
+        <div className="hazard-edge h-2 w-full" />
+      </div>
+
       </div>
     </section>
+  );
+}
+
+function CountChip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "red" | "yellow" | "outline";
+}) {
+  const cls =
+    tone === "red"
+      ? "border-race-red text-race-red bg-card"
+      : tone === "yellow"
+        ? "border-ink bg-hazard text-ink"
+        : tone === "outline"
+          ? "border-dashed border-ink text-ink bg-card"
+          : "border-ink text-ink bg-card";
+  return (
+    <span className={`pit-pill ${cls}`}>
+      <span className="opacity-70">{label}</span>
+      <span className="text-sm font-bold tabular-nums">{value}</span>
+    </span>
+  );
+}
+
+function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="mb-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+        ◉ {eyebrow}
+      </div>
+      <h3 className="font-display text-2xl leading-none tracking-wider">{title}</h3>
+    </div>
   );
 }
 
@@ -508,3 +568,4 @@ function sortIndicator(active: SortKey, dir: "asc" | "desc", k: SortKey): string
   if (active !== k) return "";
   return dir === "asc" ? "↑" : "↓";
 }
+

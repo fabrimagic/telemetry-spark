@@ -31,51 +31,69 @@ export function ChannelTable({ channels }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-3">
+      <div className="flex items-center justify-between gap-3 border-b border-ink/20 p-3">
         <Input
           placeholder="Filtra canali…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="max-w-md"
+          className="max-w-md rounded-none border-ink/40 font-mono text-xs uppercase tracking-wider"
         />
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          {filtered.length} / {channels.length}
+        </div>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="max-h-[520px]">
         <Table>
           <TableHeader className="sticky top-0 bg-card">
-            <TableRow>
-              <TableHead>Canale</TableHead>
-              <TableHead>Unità</TableHead>
-              <TableHead className="text-right">Freq</TableHead>
-              <TableHead className="text-right">N camp.</TableHead>
-              <TableHead className="text-right">Min</TableHead>
-              <TableHead className="text-right">Max</TableHead>
-              <TableHead className="text-right">Media</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Note</TableHead>
+            <TableRow className="border-b border-ink/30">
+              <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Channel</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Unit</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">Hz</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">N</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">Min</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">Max</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-foreground">Avg</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Cat</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-widest text-foreground">Flag</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((c) => (
-              <TableRow key={c.name}>
-                <TableCell className="font-medium">{c.name}</TableCell>
-                <TableCell>{c.unit || "—"}</TableCell>
-                <TableCell className="text-right">{c.freq} Hz</TableCell>
-                <TableCell className="text-right">{c.nSamples}</TableCell>
-                <TableCell className="text-right">{fmt(c.min)}</TableCell>
-                <TableCell className="text-right">{fmt(c.max)}</TableCell>
-                <TableCell className="text-right">{fmt(c.avg)}</TableCell>
-                <TableCell>{c.category}</TableCell>
+            {filtered.map((c, i) => (
+              <TableRow
+                key={c.name}
+                className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${
+                  c.badges.includes("verify") ? "pulse-hazard" : ""
+                }`}
+              >
+                <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {c.unit || "—"}
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{c.freq}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{c.nSamples}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.min)}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.max)}</TableCell>
+                <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.avg)}</TableCell>
+                <TableCell>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {c.category}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    {c.empty && <Badge variant="outline" className="text-[10px]">vuoto</Badge>}
+                    {c.empty && (
+                      <Badge variant="outline" className="rounded-none border-ink/50 font-mono text-[9px] uppercase tracking-widest">
+                        empty
+                      </Badge>
+                    )}
                     {c.badges.includes("special") && (
-                      <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 text-[10px]">
-                        speciale
+                      <Badge className="rounded-none border border-race-red bg-transparent font-mono text-[9px] uppercase tracking-widest text-race-red">
+                        spec
                       </Badge>
                     )}
                     {c.badges.includes("verify") && (
-                      <Badge className="bg-yellow-500/20 text-yellow-800 dark:text-yellow-300 border-0 text-[10px]">
-                        verificare
+                      <Badge className="rounded-none border border-ink bg-hazard font-mono text-[9px] uppercase tracking-widest text-ink">
+                        ⚑ verify
                       </Badge>
                     )}
                   </div>
