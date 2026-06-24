@@ -483,7 +483,41 @@ export function DrivingConsistencyPanel({
                 convenzione: con numero dispari il giro centrale va nella prima metà.
               </p>
             )}
+
+            {/* Radar (or fallback bars) — overlay 1ª vs 2ª metà, one metric at a time */}
+            {radarSpec && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h5 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Confronto 1ª vs 2ª metà — assi = zone-curva
+                  </h5>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      metrica:
+                    </span>
+                    {availableRadarMetrics.map((m) => (
+                      <Button
+                        key={m.key}
+                        size="sm"
+                        variant={radarMetricKey === m.key ? "default" : "outline"}
+                        className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                        onClick={() => setRadarMetricKey(m.key)}
+                      >
+                        {m.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {drift.length >= 3 ? (
+                  <DriftRadar drift={drift} spec={radarSpec} />
+                ) : (
+                  <DriftBarsFallback drift={drift} spec={radarSpec} />
+                )}
+              </div>
+            )}
+
             <div className="overflow-x-auto border border-ink/20">
+
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-ink/30">
