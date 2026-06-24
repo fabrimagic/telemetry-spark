@@ -166,7 +166,7 @@ export function buildSessionDebrief(
   }
 
   // 4) Physical binary events — ABS Active transitions to active.
-  const abs = findChannel(file.channels, "abs active");
+  const abs = resolveChannel(file.channels, "absActive");
   if (abs && !abs.empty) {
     let prev = 0;
     for (let i = 0; i < abs.values.length; i++) {
