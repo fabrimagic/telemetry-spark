@@ -118,9 +118,11 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has } = analysis;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength } = analysis;
 
-  const selected = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
+  const selectedRow = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
+  // Prevent selecting an invalid lap as the "reference" detail view.
+  const selected = selectedRow && selectedRow.isValidLap ? selectedRow : null;
   const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
   const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
 
@@ -162,8 +164,12 @@ function DebriefPage() {
               {laps.map((r, i) => (
                 <TableRow
                   key={r.lap}
-                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""}`}
-                  onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
+                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-50" : ""}`}
+                  onClick={() => {
+                    if (!r.isValidLap) return;
+                    setSelectedLap(selectedLap === r.lap ? "all" : r.lap);
+                  }}
+                  title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap)"}
                 >
                   <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
                     L{r.lap}
@@ -172,16 +178,17 @@ function DebriefPage() {
                     {fmtLapTime(r.durationS)}
                   </TableCell>
                   {has.speed && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxSpeed, 1) : "—"}</TableCell>
                   )}
                   {has.rpm && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxRpm, 0) : "—"}</TableCell>
                   )}
                   {has.abs && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
                   )}
                   <TableCell className="space-x-1">
                     {r.isFastest && <MiniBadge tone="red">fastest</MiniBadge>}
+                    {!r.isValidLap && <MiniBadge tone="ink">invalid</MiniBadge>}
                     {r.isOutLap && <MiniBadge tone="ink">out-lap</MiniBadge>}
                     {r.hasAbs && <MiniBadge tone="ink">abs</MiniBadge>}
                     {r.hasAlarm && <MiniBadge tone="red">alarm</MiniBadge>}
@@ -213,7 +220,9 @@ function DebriefPage() {
               size="sm"
               variant={selectedLap === r.lap ? "default" : "outline"}
               onClick={() => setSelectedLap(r.lap)}
-              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""}`}
+              disabled={!r.isValidLap}
+              title={r.isValidLap ? undefined : "Giro non valido"}
+              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-40" : ""}`}
             >
               L{r.lap}
             </Button>
@@ -223,10 +232,10 @@ function DebriefPage() {
         {selected === null ? (
           <>
             {has.abs && has.lapDistance && (
-              <AbsDistributionBars hits={absHits} />
+              <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
             )}
             <p className="mt-4 font-mono text-[11px] text-muted-foreground">
-              Seleziona un giro per il dettaglio.
+              Seleziona un giro valido per il dettaglio.
             </p>
           </>
         ) : (
@@ -304,7 +313,7 @@ function DebriefPage() {
       {/* ---------- ABS distribution (always-on) ---------- */}
       {has.abs && has.lapDistance && selected === null && (
         <PaperPanel eyebrow="Track Map" title="ABS by Lap Distance">
-          <AbsDistributionBars hits={absHits} />
+          <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
         </PaperPanel>
       )}
 
@@ -442,28 +451,45 @@ function Quad({ label, unit, children }: { label: string; unit: string; children
   );
 }
 
-/* Simple histogram of ABS hits along normalized lap distance. */
-function AbsDistributionBars({ hits }: { hits: { lapDistance?: number }[] }) {
-  const withDist = hits.filter((h): h is { lapDistance: number } => h.lapDistance !== undefined && Number.isFinite(h.lapDistance));
-  if (withDist.length === 0) {
+/* Histogram of ABS hits projected onto a single normalised lap (0..refLapLength). */
+function AbsDistributionBars({
+  hits,
+  refLapLength,
+}: {
+  hits: { lapDistanceNorm?: number; inValidLap?: boolean }[];
+  refLapLength?: number;
+}) {
+  if (!refLapLength || refLapLength <= 0) {
     return (
       <p className="font-mono text-xs text-muted-foreground">
-        Nessuna attivazione ABS con lap distance disponibile.
+        Lunghezza di riferimento del giro non disponibile (nessun giro valido con Lap Distance).
       </p>
     );
   }
-  const maxDist = Math.max(...withDist.map((h) => h.lapDistance));
+  const withDist = hits.filter(
+    (h): h is { lapDistanceNorm: number; inValidLap: boolean } =>
+      h.inValidLap === true &&
+      h.lapDistanceNorm !== undefined &&
+      Number.isFinite(h.lapDistanceNorm),
+  );
+  if (withDist.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Nessuna attivazione ABS nei giri validi con Lap Distance disponibile.
+      </p>
+    );
+  }
   const BINS = 20;
   const bin = new Array(BINS).fill(0) as number[];
   for (const h of withDist) {
-    const idx = Math.min(BINS - 1, Math.floor((h.lapDistance / maxDist) * BINS));
+    const idx = Math.min(BINS - 1, Math.floor((h.lapDistanceNorm / refLapLength) * BINS));
     bin[idx]++;
   }
   const peak = Math.max(...bin, 1);
   return (
     <div className="space-y-2 font-mono">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-        Distribuzione attivazioni ABS · {withDist.length} eventi · max distance {fmt(maxDist, 0)} m
+        Distribuzione ABS · giro normalizzato · lungh. rif. {fmt(refLapLength, 0)} m · {withDist.length} eventi
       </div>
       <div className="flex h-24 items-end gap-1 border-b border-ink/30">
         {bin.map((v, i) => (
@@ -472,7 +498,7 @@ function AbsDistributionBars({ hits }: { hits: { lapDistance?: number }[] }) {
       </div>
       <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
         <span>0 m</span>
-        <span>{fmt(maxDist, 0)} m</span>
+        <span>{fmt(refLapLength, 0)} m</span>
       </div>
     </div>
   );
