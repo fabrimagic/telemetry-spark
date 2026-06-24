@@ -220,7 +220,9 @@ function DebriefPage() {
               size="sm"
               variant={selectedLap === r.lap ? "default" : "outline"}
               onClick={() => setSelectedLap(r.lap)}
-              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""}`}
+              disabled={!r.isValidLap}
+              title={r.isValidLap ? undefined : "Giro non valido"}
+              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-40" : ""}`}
             >
               L{r.lap}
             </Button>
