@@ -41,6 +41,8 @@ export interface ToolsetDisplayMeta {
   alarmEnabled?: boolean;
   /** True when (min, max) is something other than the default 0..1000 placeholder. */
   hasSignificantRange: boolean;
+  /** True when (alarmMin, alarmMax) is something other than the default 0..1000 placeholder. */
+  hasSignificantAlarmRange?: boolean;
 }
 
 /** Physical I/O sensor wiring: human description + hardware port + internal name. */

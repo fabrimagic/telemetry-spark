@@ -342,6 +342,8 @@ function parseDashChannelBlocks(text: string): {
     const minimum = numAttr(attrs.Minimum);
     const maximum = numAttr(attrs.Maximum);
 
+    const alarmMinimum = numAttr(attrs.AlarmMinimum);
+    const alarmMaximum = numAttr(attrs.AlarmMaximum);
     const meta: ToolsetDisplayMeta = {
       sourceName,
       category: categorizeToolset(sourceName),
@@ -350,11 +352,15 @@ function parseDashChannelBlocks(text: string): {
       decimalPlaces: numAttr(attrs.DecimalPlaces),
       minimum,
       maximum,
-      alarmMinimum: numAttr(attrs.AlarmMinimum),
-      alarmMaximum: numAttr(attrs.AlarmMaximum),
+      alarmMinimum,
+      alarmMaximum,
       alarmEnabled: attrs.AlarmEnabled ? attrs.AlarmEnabled.toLowerCase() === "true" : undefined,
       hasSignificantRange:
         minimum !== undefined && maximum !== undefined && !isPlaceholderRange(minimum, maximum),
+      hasSignificantAlarmRange:
+        alarmMinimum !== undefined &&
+        alarmMaximum !== undefined &&
+        !isPlaceholderRange(alarmMinimum, alarmMaximum),
     };
     bySource.set(sourceName, meta); // last wins
   }
