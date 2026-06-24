@@ -351,15 +351,14 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
-        {/* ---------- Tyre Evolution (session-level) ---------- */}
-        <div className="col-span-12 min-w-0">
+        {/* ---------- Tyre Evolution + Brake Management — share a row on wide screens ---------- */}
+        <div className="col-span-12 min-w-0 2xl:col-span-6">
           <PaperPanel eyebrow="Management" title="Tyre Evolution">
             <TyreEvolutionPanel file={file} laps={laps} />
           </PaperPanel>
         </div>
 
-        {/* ---------- Brake Management (session-level) ---------- */}
-        <div className="col-span-12 min-w-0">
+        <div className="col-span-12 min-w-0 2xl:col-span-6">
           <PaperPanel eyebrow="Management" title="Brake Management">
             <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
           </PaperPanel>
