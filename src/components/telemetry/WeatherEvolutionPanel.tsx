@@ -36,6 +36,7 @@ import {
 } from "@/lib/weather/openMeteo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Gauge } from "@/components/telemetry/Gauge";
 
 function fmt(n: number | undefined, d = 1): string {
   if (n === undefined || !Number.isFinite(n)) return "—";
