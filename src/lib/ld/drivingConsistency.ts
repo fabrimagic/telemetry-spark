@@ -185,6 +185,7 @@ export function buildDrivingConsistency(
     throttleReopenStd: r.throttleReopenDist.std,
     vMinCV: cv(r.vMin.mean, r.vMin.std),
     brakePointCV: cv(r.brakePointDist.mean, r.brakePointDist.std),
+    perLapValues: r.perLapValues,
   }));
 
   // Part 2 — temporal drift first half vs second half.
