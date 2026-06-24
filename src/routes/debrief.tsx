@@ -21,6 +21,7 @@ import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
 import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
+import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
 
 import {
   Table,
@@ -555,6 +556,14 @@ function DebriefPage() {
             />
           </PaperPanel>
         </div>
+
+        {/* ---------- Thermal Balance (stint aggregate, setup-oriented read) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Setup" title="Thermal Balance">
+            <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+          </PaperPanel>
+        </div>
+
 
 
 
