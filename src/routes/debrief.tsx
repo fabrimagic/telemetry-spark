@@ -3,9 +3,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
 import { buildStintAnalysis, type LapRow, type LapTempCorner, type LapCoherence } from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
-import type { Channel, LdFile } from "@/lib/ld/types";
+import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TrackMap } from "@/components/telemetry/TrackMap";
 import {
   Table,
   TableBody,
@@ -23,6 +24,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+function lapRowToLap(r: LapRow): Lap {
+  return {
+    index: r.lap,
+    duration: r.durationS,
+    tStart: r.tStart,
+    tEnd: r.tEnd,
+    absoluteIndex: r.absoluteLap,
+  };
+}
 
 export const Route = createFileRoute("/debrief")({
   head: () => ({
