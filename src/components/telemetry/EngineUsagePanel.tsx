@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Gauge } from "@/components/telemetry/Gauge";
 
 function fmt(n: number | undefined, d = 0): string {
   if (n === undefined || !Number.isFinite(n)) return "—";
@@ -77,6 +78,31 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
           <div className="text-ink">{summary.lapsAnalysed}</div>
         </div>
       </div>
+
+      {/* Gauge — % tempo medio per giro sopra la soglia alta (data-driven) */}
+      <div className="flex flex-col items-center gap-2 border border-ink/15 bg-card p-3 md:flex-row md:items-center md:gap-6">
+        <Gauge
+          value={
+            summary.fracAboveHighAvg !== undefined && Number.isFinite(summary.fracAboveHighAvg)
+              ? summary.fracAboveHighAvg * 100
+              : undefined
+          }
+          label="% tempo sopra regime alto"
+          unit="%"
+          digits={1}
+        />
+        <p className="max-w-md font-mono text-[10px] leading-relaxed text-muted-foreground">
+          Frazione media per giro del tempo trascorso sopra la{" "}
+          <span className="font-bold">soglia alta</span> ={" "}
+          <span className="tabular-nums">{fmt(thresholds.highRpmThreshold, 0)}</span> rpm,
+          pari al {(thresholds.highRpmFrac * 100).toFixed(0)}% di RPM max di stint
+          (<span className="tabular-nums">{fmt(thresholds.stintMaxRpm, 0)}</span> rpm).
+          La soglia è derivata dai dati dello stint, <span className="font-bold">non</span>{" "}
+          è un limite assoluto del motore: il valore non implica "buono" o "cattivo",
+          è una misura d'intensità d'uso.
+        </p>
+      </div>
+
 
       {/* Thresholds declaration */}
       <div className="border border-ink/15 bg-card p-3">
