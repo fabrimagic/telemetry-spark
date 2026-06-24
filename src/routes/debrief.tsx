@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
 import { buildStintAnalysis, type LapRow, type LapTempCorner } from "@/lib/ld/stintAnalysis";
+import type { LapTimingResult } from "@/lib/ld/lapTiming";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
@@ -49,10 +50,16 @@ function fmtTime(s: number | undefined): string {
   const r = s - m * 60;
   return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
 }
-function fmtLapTime(s: number | undefined): string {
+function fmtLapTime(s: number | undefined, verified = true): string {
   if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
   const m = Math.floor(s / 60);
   const r = s - m * 60;
+  if (!verified) {
+    const rr = Math.round(r);
+    const mm = rr === 60 ? m + 1 : m;
+    const ss = rr === 60 ? 0 : rr;
+    return `${mm}:${String(ss).padStart(2, "0")}`;
+  }
   return `${m}:${r.toFixed(3).padStart(6, "0")}`;
 }
 
@@ -129,7 +136,8 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has, refLapLength } = analysis;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength, timing } = analysis;
+  const verified = timing.timingVerified;
 
   const visibleLaps = laps.filter((l) =>
     lapFilter === "all" ? true : lapFilter === "valid" ? l.isValidLap : !l.isValidLap,
@@ -146,7 +154,9 @@ function DebriefPage() {
         <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
+        <TimingStatus timing={timing} />
       </header>
+
 
       {/* ---------- Conditions ribbon ---------- */}
       <PaperPanel eyebrow="Session" title="Conditions">
@@ -203,7 +213,7 @@ function DebriefPage() {
                     L{r.lap}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    {fmtLapTime(r.durationS)}
+                    {fmtLapTime(r.durationS, verified)}
                   </TableCell>
                   {has.speed && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
@@ -268,7 +278,7 @@ function DebriefPage() {
         ) : (
           <div className="space-y-5">
             <h3 className="font-mono text-sm font-bold tracking-widest">
-              L{selected.lap} · {fmtLapTime(selected.durationS)}
+              L{selected.lap} · {fmtLapTime(selected.durationS, verified)}
               {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
@@ -278,6 +288,7 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                verified={verified}
               />
             </Section>
 
@@ -636,10 +647,12 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
+  verified = true,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
+  verified?: boolean;
 }) {
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
@@ -687,7 +700,7 @@ function LapChannelTraces({
     <div className="space-y-3">
       {refLap && (
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS)}) — linea attenuata
+          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS, verified)}) — linea attenuata
         </div>
       )}
       {traces.map(({ spec, data, ref }) => {
@@ -761,3 +774,52 @@ function LapChannelTraces({
     </div>
   );
 }
+
+/* ============ Timing verification status banner ============ */
+function fmtMs(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s)) return "—";
+  const m = Math.floor(s / 60);
+  const r = s - m * 60;
+  return `${m}:${r.toFixed(3).padStart(6, "0")}`;
+}
+
+function TimingStatus({ timing }: { timing: LapTimingResult }) {
+  const {
+    timingVerified,
+    status,
+    fastestFound,
+    countFound,
+    oracleFastestSec,
+    oracleTotalLaps,
+  } = timing;
+
+  let label: string;
+  let tone: "ok" | "warn";
+  if (timingVerified) {
+    tone = "ok";
+    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})`;
+  } else {
+    tone = "warn";
+    const reason =
+      status === "no-channel"
+        ? "canale lap time prev assente"
+        : status === "no-oracle"
+          ? "summary .ldx mancante"
+          : status === "fastest-mismatch"
+            ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
+            : status === "count-mismatch"
+              ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}`
+              : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
+    label = `Tempi stimati, non verificati col beacon · ${reason}`;
+  }
+  const cls =
+    tone === "ok"
+      ? "border-race-red text-race-red"
+      : "border-ink/40 text-muted-foreground";
+  return (
+    <div className={`mt-2 inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
+      {label}
+    </div>
+  );
+}
+

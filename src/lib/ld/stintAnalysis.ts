@@ -1,6 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { buildLapTiming, type LapTimingResult } from "@/lib/ld/lapTiming";
 
 /* ===================== Types ===================== */
 
@@ -77,6 +78,8 @@ export interface StintAnalysis {
   setupChanges: SetupChange[];
   /** Median nominal lap length (m) computed from valid laps; undefined if not available. */
   refLapLength?: number;
+  /** Lap timing recovered from "lap time prev" + .ldx oracle check. */
+  timing: LapTimingResult;
   /** Whether each per-channel group has data; lets UI omit empty sections. */
   has: {
     speed: boolean;
@@ -387,7 +390,18 @@ export function buildStintAnalysis(
     return { ...row, isValidLap: _durationValid && movementOk };
   });
 
-  // Fastest is taken only among combined-valid laps.
+  // ----- Lap timing: try to recover precise per-lap times from "lap time prev" -----
+  const timing = buildLapTiming(file);
+  if (timing.timingVerified) {
+    for (const row of lapRows) {
+      const precise = timing.perLap.get(row.lap);
+      if (precise !== undefined && Number.isFinite(precise) && precise > 0) {
+        row.durationS = precise;
+      }
+    }
+  }
+
+  // Fastest is taken only among combined-valid laps (uses precise times when verified).
   let bestIdx = -1;
   let bestT = Infinity;
   lapRows.forEach((r, idx) => {
@@ -505,6 +519,7 @@ export function buildStintAnalysis(
     absHits,
     setupChanges,
     refLapLength,
+    timing,
     has: {
       speed: !!speed,
       rpm: !!rpm,
