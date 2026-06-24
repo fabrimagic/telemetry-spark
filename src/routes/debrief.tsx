@@ -652,12 +652,10 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
-  verified = true,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
-  verified?: boolean;
 }) {
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
@@ -705,7 +703,7 @@ function LapChannelTraces({
     <div className="space-y-3">
       {refLap && (
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS, verified)}) — linea attenuata
+          Sovrimpressione: L{refLap.lap} (fastest, ≈ {fmtLapTimeRough(refLap.durationS)}) — linea attenuata
         </div>
       )}
       {traces.map(({ spec, data, ref }) => {
