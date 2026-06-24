@@ -565,6 +565,14 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Engine Usage (stint aggregate, RPM-based) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Engine" title="Engine Usage">
+            <EngineUsagePanel file={file} laps={laps} />
+          </PaperPanel>
+        </div>
+
+
 
 
 
