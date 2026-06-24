@@ -8,13 +8,17 @@
 // reads the data and decides; the engine does not diagnose.
 
 // Radar (Part 2) — overlays first-half vs second-half of the stint, one
-// metric at a time, with one axis per corner. Each axis is normalised
-// independently on its own range (combining the two halves of that zone) so
-// the chart is readable even when corners have very different physical
-// scales. Consequence (declared in the panel): the radar shows the RELATIVE
-// shape of the first-vs-second comparison, NOT absolute values; the area
-// and the distance from the centre are NOT physical quantities. Exact
-// values remain available in the tooltip and in the table below.
+// metric at a time, with one axis per corner. Since the radar shows ONE
+// metric at a time, all axes carry the same physical quantity (e.g. all
+// vMin in km/h), so they share a SINGLE scale derived from the global
+// min/max of (first.mean, second.mean) across every zone, with a small
+// padding. Consequence: on each axis the distance between the "1ª metà"
+// and "2ª metà" vertices is proportional to the REAL drift of that zone;
+// zones with very different drifts look very different on the radar.
+// Side effect (honest): slow corners and fast corners sit at different
+// radii because their absolute level is different — this is physics, not
+// a defect. The area enclosed by each polygon is NOT a physical quantity.
+// Exact values remain available in the tooltip and in the table below.
 
 import { useMemo, useState } from "react";
 import {
@@ -121,11 +125,32 @@ interface RadarDatum {
   available: boolean;
 }
 
-/** Per-axis range = [min, max] of (first.mean, second.mean) with a small
- *  symmetric padding so values never collapse on the rim/centre. Both halves
- *  are projected to [0,1] in that axis. Returns null/undefined when the
- *  metric is unavailable for the zone (vertex falls to 0.5 with "n/d" label). */
+/** Shared-scale radar projection.
+ *  All axes carry the same metric, so we compute a single [globalMin,
+ *  globalMax] range over every available (first.mean, second.mean) across
+ *  all zones, pad it by 10%, and project every value into [0,1] on that
+ *  shared scale. This makes the radial distance between the two halves on
+ *  each axis proportional to the REAL drift of that zone. Unavailable
+ *  zones get a neutral vertex (null → centre upstream) without inventing
+ *  values. */
 function buildRadarData(drift: ZoneDrift[], key: RadarMetricKey): RadarDatum[] {
+  const reals: number[] = [];
+  for (const d of drift) {
+    const m = pickMetric(d, key);
+    if (!m.available) continue;
+    if (Number.isFinite(m.first.mean)) reals.push(m.first.mean);
+    if (Number.isFinite(m.second.mean)) reals.push(m.second.mean);
+  }
+  let lo = reals.length > 0 ? Math.min(...reals) : 0;
+  let hi = reals.length > 0 ? Math.max(...reals) : 1;
+  let span = hi - lo;
+  if (span === 0) span = Math.max(1e-6, Math.abs(hi) * 0.05 + 1e-6);
+  const pad = span * 0.1;
+  lo -= pad;
+  hi += pad;
+  const denom = hi - lo;
+  const proj = (v: number) => (denom > 0 ? (v - lo) / denom : 0.5);
+
   return drift.map((d) => {
     const m = pickMetric(d, key);
     if (!m.available || !Number.isFinite(m.first.mean) || !Number.isFinite(m.second.mean)) {
@@ -141,15 +166,6 @@ function buildRadarData(drift: ZoneDrift[], key: RadarMetricKey): RadarDatum[] {
     }
     const a = m.first.mean;
     const b = m.second.mean;
-    const lo = Math.min(a, b);
-    const hi = Math.max(a, b);
-    let span = hi - lo;
-    if (span === 0) span = Math.max(1e-6, Math.abs(hi) * 0.05 + 1e-6);
-    const pad = span * 0.25;
-    const axisLo = lo - pad;
-    const axisHi = hi + pad;
-    const denom = axisHi - axisLo;
-    const proj = (v: number) => (denom > 0 ? (v - axisLo) / denom : 0.5);
     return {
       zone: d.label,
       first: proj(a),
@@ -275,7 +291,7 @@ function DriftRadar({
           <span className="inline-block h-2 w-3" style={{ background: "hsl(var(--race-red))" }} /> 2ª metà
         </span>
         <span className="uppercase tracking-widest">
-          Ogni asse è normalizzato sul proprio range (1ª + 2ª metà di quella zona) + padding 25%.
+          Scala condivisa tra le zone per la metrica selezionata (min/max globale + padding 10%): la distanza tra 1ª e 2ª metà su ciascun asse riflette l'entità reale della deriva. Curve lente e veloci stanno a raggi diversi perché hanno livelli assoluti diversi — è fisica, non un difetto. L'area complessiva non è una grandezza fisica.
         </span>
       </div>
     </div>
@@ -297,8 +313,8 @@ function DriftBarsFallback({
     <div className="space-y-2 border border-ink/15 p-3">
       <p className="font-mono text-[10px] text-muted-foreground">
         Meno di 3 zone disponibili: il radar è degenere, fallback a barre
-        affiancate (1ª vs 2ª metà) per zona, con normalizzazione per-asse
-        (range locale + padding).
+        affiancate (1ª vs 2ª metà) per zona, con scala condivisa tra le zone
+        sulla metrica selezionata (min/max globale + padding 10%).
       </p>
       <div className="space-y-2">
         {data.map((d) => {
