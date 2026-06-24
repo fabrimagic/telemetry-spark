@@ -1,6 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, resolveCorners, hasAnyCorner, type LogicalKey, type WheelKey } from "@/lib/ld/channelResolver";
 
 
 /* ===================== Types ===================== */
