@@ -13,8 +13,8 @@ export interface ToolsetPart {
 export interface ToolsetCanBus {
   id: number;
   label: string;
-  channelCount: number;
 }
+
 
 export interface ToolsetChannelEntry {
   name: string;

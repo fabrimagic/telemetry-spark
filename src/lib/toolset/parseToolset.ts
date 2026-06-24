@@ -20,12 +20,29 @@ interface Options {
 const SETUP_BINARY = "setup.binary";
 const CONTENT_TYPES = "[Content_Types].xml";
 
-const SNAKE_NAME_RE = /^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+){1,}$/;
-const CAN_BUS_RE = /^CAN\s+(\d+)(?:\s+(\S[^\x00]*))?$/i;
+// Strict snake_case identifier: must start lowercase, contain ≥1 underscore segment.
+// Tightened (was [A-Za-z]…) to avoid counting CamelCase tokens / XAML fragments.
+const SNAKE_NAME_RE = /^[a-z][a-z0-9]*(?:_[a-zA-Z0-9]+)+$/;
+const CAN_BUS_RE = /^CAN\s+0*(\d+)(?:\s+([\x20-\x7e]+))?$/i;
 const VERSION_RE = /\b(Hardware|Software|Firmware)\s+Version\b/i;
 const ALARM_RE = /(error|alarm|timed\s*out|check\s|fault|warning)/i;
+// XAML markup tokens that pollute the alarm set when matched as plain strings.
+const ALARM_XAML_MARKER_RE = /<dash:|TextBlock|SourceName=|<\w+:|xmlns/i;
 const PORT_RE = /^(Input|Digital)\s+\d{1,3}$/;
 const DEVICE_HINTS = ["Porsche", "Badenia", "Cosworth", "Pi Research"];
+
+// Expected CAN bus domain labels (Porsche logger). Used as fallback when the
+// raw string extracted from setup.binary is missing or corrupted by trailing bytes.
+const EXPECTED_CAN_LABELS: Record<number, string> = {
+  1: "Antrieb",
+  2: "Car",
+  3: "Chassis",
+  4: "Lights",
+  5: "Interior",
+  6: "Gearbox",
+  7: "Scrutineering",
+  8: "Team",
+};
 
 // Calibration hint patterns — match raw textual indicators only, never compute factors.
 const CALIBRATION_RES: RegExp[] = [
@@ -36,6 +53,18 @@ const CALIBRATION_RES: RegExp[] = [
   /\bGain\s*:/i,
   /\bbar\s*sensor\b/i,
 ];
+
+/** Truncate a string at the first non-printable-ASCII byte (excluding null). */
+function cleanAscii(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x20 || c > 0x7e) break;
+    out += s[i];
+  }
+  return out.trim();
+}
+
 
 // Default placeholder range for "no real range set". Used to flag significant ranges.
 function isPlaceholderRange(min: number | undefined, max: number | undefined): boolean {
@@ -135,11 +164,13 @@ export async function parseToolset(
       }
     }
 
-    // CAN bus
+    // CAN bus — sanitize tail bytes (string-extractor can pull UTF-8 continuation
+    // bytes that survive as "@B", "���" etc.). Keep the longest clean candidate
+    // per bus id; final fallback to EXPECTED_CAN_LABELS happens at assembly time.
     const canMatch = s.match(CAN_BUS_RE);
     if (canMatch) {
       const id = parseInt(canMatch[1], 10);
-      const label = (canMatch[2] || "").trim();
+      const label = cleanAscii(canMatch[2] || "");
       const prev = canBusesMap.get(id);
       if (prev === undefined || (label && label.length > prev.length)) {
         canBusesMap.set(id, label);
@@ -158,11 +189,13 @@ export async function parseToolset(
       calibrationHints.add(s.trim());
     }
 
-    // Alarm / diagnostic
-    if (ALARM_RE.test(s) && s.length <= 200) {
+    // Alarm / diagnostic — exclude XAML markup fragments that match by accident
+    // (e.g. "<dash:AlarmDefinition …", "TextBlock", "SourceName=").
+    if (ALARM_RE.test(s) && s.length <= 200 && !ALARM_XAML_MARKER_RE.test(s)) {
       alarms.add(s.trim());
       continue;
     }
+
 
     // Channel name candidate
     if (SNAKE_NAME_RE.test(s) && s.length <= 80) {
@@ -203,19 +236,20 @@ export async function parseToolset(
     ? parseDashChannelBlocks(setupText)
     : { displayMeta: [], totalBlocks: 0 };
 
-  // Build CAN bus list
+  // Build CAN bus list — always 8 buses; substitute the expected domain label
+  // when the raw extracted string is empty, corrupted, or mismatched.
   const channels = Array.from(channelMap.values());
-  const canBuses: ToolsetCanBus[] = Array.from(canBusesMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([id, label]) => ({
-      id,
-      label,
-      channelCount: label
-        ? channels.filter((c) =>
-            (c.description ?? "").toLowerCase().includes(label.toLowerCase()),
-          ).length
-        : 0,
-    }));
+  const expectedIds = Object.keys(EXPECTED_CAN_LABELS).map((n) => parseInt(n, 10));
+  const allIds = new Set<number>([...expectedIds, ...canBusesMap.keys()]);
+  const canBuses: ToolsetCanBus[] = Array.from(allIds)
+    .sort((a, b) => a - b)
+    .map((id) => {
+      const raw = canBusesMap.get(id) ?? "";
+      const expected = EXPECTED_CAN_LABELS[id];
+      const label = raw && (!expected || raw === expected) ? raw : (expected ?? raw);
+      return { id, label };
+    });
+
 
   const notExtracted = buildNotExtractedList(parts, setupPresent);
 
@@ -361,11 +395,15 @@ function buildNotExtractedList(parts: ToolsetPart[], setupPresent: boolean): str
   }
   if (setupPresent) {
     out.push(
+      "Associazione canale → bus CAN: richiede la mappatura binaria, non decodificata.",
+    );
+    out.push(
       "Mappatura binaria canale → CAN ID → bit offset → scala/offset: non decodificata. Il layout binario proprietario Cosworth in setup.binary non è documentato.",
     );
     out.push(
       "Unità certe disponibili solo per il sottoinsieme di canali con metadati display (blocchi dash:Channel).",
     );
+
   } else {
     out.push("setup.binary assente: nessuna configurazione estraibile.");
   }
