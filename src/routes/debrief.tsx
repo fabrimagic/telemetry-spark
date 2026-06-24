@@ -540,3 +540,224 @@ function AbsDistributionBars({
     </div>
   );
 }
+
+/* ============ Lap Channel Traces (drill-down chart) ============ */
+
+function findChannel(file: LdFile, aliases: string[]): Channel | undefined {
+  const wanted = aliases.map(norm);
+  // exact first, then substring
+  for (const want of wanted) {
+    const exact = file.channels.find((c) => norm(c.name) === want && !c.empty);
+    if (exact) return exact;
+  }
+  for (const want of wanted) {
+    const part = file.channels.find((c) => norm(c.name).includes(want) && !c.empty);
+    if (part) return part;
+  }
+  return undefined;
+}
+
+/** Build (distance, value) pairs for a channel within [tStart, tEnd]; skips -1 sentinel and non-finite. */
+function buildLapSeries(
+  ch: Channel,
+  lapCh: Channel,
+  tStart: number,
+  tEnd: number,
+): { x: number; y: number }[] {
+  const i0 = Math.max(0, Math.floor(tStart * ch.freq));
+  const i1 = Math.min(ch.values.length, Math.ceil(tEnd * ch.freq));
+  const out: { x: number; y: number }[] = [];
+  const ldFreq = lapCh.freq;
+  const ldLen = lapCh.values.length;
+  for (let i = i0; i < i1; i++) {
+    const v = ch.values[i];
+    if (!Number.isFinite(v) || v === -1) continue;
+    const t = i / ch.freq;
+    const j = Math.min(ldLen - 1, Math.max(0, Math.floor(t * ldFreq)));
+    const d = lapCh.values[j];
+    if (!Number.isFinite(d) || d < 0) continue;
+    out.push({ x: d, y: v });
+  }
+  return out;
+}
+
+/** Decimate by bucket, keeping the sample with max |y - bucketMean| (peak-preserving). */
+function decimateSeries(
+  pts: { x: number; y: number }[],
+  target = 900,
+): { x: number; y: number }[] {
+  if (pts.length <= target) return pts;
+  const buckets = target;
+  const step = pts.length / buckets;
+  const out: { x: number; y: number }[] = [];
+  for (let b = 0; b < buckets; b++) {
+    const s = Math.floor(b * step);
+    const e = Math.min(pts.length, Math.floor((b + 1) * step));
+    if (e <= s) continue;
+    let bestI = s;
+    let bestAbs = -Infinity;
+    let sum = 0;
+    for (let i = s; i < e; i++) sum += pts[i].y;
+    const mean = sum / (e - s);
+    for (let i = s; i < e; i++) {
+      const dev = Math.abs(pts[i].y - mean);
+      if (dev > bestAbs) {
+        bestAbs = dev;
+        bestI = i;
+      }
+    }
+    out.push(pts[bestI]);
+  }
+  out.sort((a, b) => a.x - b.x);
+  return out;
+}
+
+interface TraceSpec {
+  key: string;
+  label: string;
+  unit: string;
+  aliases: string[];
+  color: string;
+  /** Show reference-lap overlay (only for speed). */
+  withRef?: boolean;
+  decimals?: number;
+}
+
+const TRACE_SPECS: TraceSpec[] = [
+  { key: "speed", label: "Ground Speed", unit: "km/h", aliases: ["ground speed", "speed"], color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
+  { key: "rpm", label: "RPM", unit: "rpm", aliases: ["rpm", "engine rpm"], color: "#c97a00", decimals: 0 },
+  { key: "aps", label: "Throttle", unit: "%", aliases: ["ecu aps", "ath", "aps", "throttle"], color: "#2a7a2a", decimals: 1 },
+  { key: "pbf", label: "Brake Press F", unit: "bar", aliases: ["log pbrake f", "pbrake f", "brake pressure front"], color: "#1f4a8a", decimals: 1 },
+  { key: "pbr", label: "Brake Press R", unit: "bar", aliases: ["log pbrake r", "pbrake r", "brake pressure rear"], color: "#3d6cc4", decimals: 1 },
+  { key: "steer", label: "Steering", unit: "°", aliases: ["log asteer", "asteer", "steering angle", "steer"], color: "#7a3d8a", decimals: 1 },
+];
+
+function LapChannelTraces({
+  file,
+  lap,
+  refLap,
+}: {
+  file: LdFile;
+  lap: LapRow;
+  refLap: LapRow | null;
+}) {
+  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  if (!lapCh) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Canale "Lap Distance" non disponibile: impossibile tracciare contro la distanza.
+      </p>
+    );
+  }
+
+  const traces = TRACE_SPECS.map((spec) => {
+    const ch = findChannel(file, spec.aliases);
+    if (!ch) return { spec, data: null as null | { x: number; y: number }[], ref: null as null | { x: number; y: number }[] };
+    const raw = buildLapSeries(ch, lapCh, lap.tStart, lap.tEnd);
+    if (raw.length === 0) return { spec, data: null, ref: null };
+    const data = decimateSeries(raw);
+    let ref: { x: number; y: number }[] | null = null;
+    if (spec.withRef && refLap) {
+      const refRaw = buildLapSeries(ch, lapCh, refLap.tStart, refLap.tEnd);
+      if (refRaw.length > 0) ref = decimateSeries(refRaw);
+    }
+    return { spec, data, ref };
+  }).filter((t) => t.data !== null) as {
+    spec: TraceSpec;
+    data: { x: number; y: number }[];
+    ref: { x: number; y: number }[] | null;
+  }[];
+
+  if (traces.length === 0) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">
+        Nessun canale tra Ground Speed / RPM / Throttle / Brake / Steering presente nel file.
+      </p>
+    );
+  }
+
+  // Common X domain across all traces of this lap.
+  let xMax = 0;
+  for (const t of traces) {
+    for (const p of t.data) if (p.x > xMax) xMax = p.x;
+  }
+  if (xMax <= 0) xMax = 1;
+
+  return (
+    <div className="space-y-3">
+      {refLap && (
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS)}) — linea attenuata
+        </div>
+      )}
+      {traces.map(({ spec, data, ref }) => {
+        // Merge by x for tooltip continuity isn't needed; render as two series in same chart.
+        const merged: { x: number; y?: number; yRef?: number }[] = data.map((p) => ({ x: p.x, y: p.y }));
+        if (ref) for (const p of ref) merged.push({ x: p.x, yRef: p.y });
+        merged.sort((a, b) => a.x - b.x);
+        return (
+          <div key={spec.key} className="border border-ink/20 bg-card/40 p-2">
+            <div className="mb-1 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-widest">
+              <span className="text-foreground">{spec.label}</span>
+              <span className="text-muted-foreground">{spec.unit}</span>
+            </div>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                  <CartesianGrid stroke="hsl(var(--ink) / 0.1)" strokeDasharray="2 2" />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    domain={[0, Math.ceil(xMax)]}
+                    tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    stroke="hsl(var(--ink) / 0.3)"
+                  />
+                  <YAxis
+                    tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    stroke="hsl(var(--ink) / 0.3)"
+                    width={42}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--ink) / 0.3)",
+                      borderRadius: 0,
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: 11,
+                    }}
+                    labelFormatter={(v: number) => `d ${v.toFixed(0)} m`}
+                    formatter={(v: number, name: string) => [
+                      Number.isFinite(v) ? v.toFixed(spec.decimals ?? 1) : "—",
+                      name === "yRef" ? `L${refLap?.lap ?? "?"}` : `L${lap.lap}`,
+                    ]}
+                  />
+                  {ref && (
+                    <Line
+                      type="monotone"
+                      dataKey="yRef"
+                      stroke="hsl(var(--race-red))"
+                      strokeOpacity={0.35}
+                      strokeWidth={1}
+                      dot={false}
+                      isAnimationActive={false}
+                      connectNulls
+                    />
+                  )}
+                  <Line
+                    type="monotone"
+                    dataKey="y"
+                    stroke={spec.color}
+                    strokeWidth={1.4}
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
