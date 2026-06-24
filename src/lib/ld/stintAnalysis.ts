@@ -1,7 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
-import { buildLapTiming, type LapTimingResult } from "@/lib/ld/lapTiming";
+
 
 /* ===================== Types ===================== */
 
@@ -43,8 +43,15 @@ export interface LapTempCorner {
 
 export interface LapRow {
   lap: number;
+  /** Absolute car-side counter (from "Lap Number" channel), if available. */
+  absoluteLap?: number;
   tStart: number;
   tEnd: number;
+  /**
+   * Lap duration in seconds, derived from "Lap Number" boundaries (≈ 1 s
+   * resolution). Not millisecond-accurate — see SessionMeta.fastestTime
+   * (.ldx) for the only authoritative precise timing.
+   */
   durationS: number;
   maxSpeed?: number;
   maxRpm?: number;
