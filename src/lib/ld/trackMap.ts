@@ -11,7 +11,7 @@
  * location on the circuit.
  */
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 export interface Pt {
   x: number;
