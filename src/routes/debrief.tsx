@@ -19,6 +19,7 @@ import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
 import { BrakeManagementPanel } from "@/components/telemetry/BrakeManagementPanel";
 import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
 import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
+import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
 
 import {
   Table,
@@ -530,6 +531,17 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Braking & Traction Signature (stint aggregate) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Performance" title="Braking & Traction Signature">
+            <BrakingSignaturePanel
+              file={file}
+              laps={laps}
+              absHits={absHits}
+              hasAbs={has.abs}
+            />
+          </PaperPanel>
+        </div>
 
 
         {/* ---------- ABS distribution (always-on, when no lap is selected) ---------- */}
