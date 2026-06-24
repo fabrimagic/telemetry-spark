@@ -1024,7 +1024,7 @@ interface DistTimeIndex {
 
 /** Build a monotonic distance↔time index from the Lap Distance channel over a lap window. */
 function buildDistTimeIndex(file: LdFile, lap: LapRow): DistTimeIndex | null {
-  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  const lapCh = findChannel(file, "lapDistance");
   if (!lapCh) return null;
   const freq = lapCh.freq || 1;
   const i0 = Math.max(0, Math.floor(lap.tStart * freq));
