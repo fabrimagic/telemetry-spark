@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Channel } from "@/lib/ld/types";
+import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
+import { SCLU_RATE_CHANNELS } from "@/lib/ld/channelOverrides";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface Props {
   channels: Channel[];
   lapCount?: number;
+  toolsetMeta?: ToolsetDisplayMeta[];
 }
 
 function fmt(n: number) {
@@ -23,8 +26,24 @@ function fmt(n: number) {
   return n.toFixed(3);
 }
 
-export function ChannelTable({ channels, lapCount }: Props) {
+/** Normalize "sclu_yaw_rate" / "SCLU Yaw Rate" → "sclu yaw rate" for matching. */
+function norm(s: string): string {
+  return s.trim().toLowerCase().replace(/[_\s]+/g, " ");
+}
+
+export function ChannelTable({ channels, lapCount, toolsetMeta }: Props) {
   const [q, setQ] = useState("");
+
+  const metaByName = useMemo(() => {
+    const m = new Map<string, ToolsetDisplayMeta>();
+    (toolsetMeta || []).forEach((d) => {
+      if (d.hasSignificantRange && d.minimum !== undefined && d.maximum !== undefined) {
+        m.set(norm(d.sourceName), d);
+      }
+    });
+    return m;
+  }, [toolsetMeta]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return channels.filter((c) => !s || c.name.toLowerCase().includes(s));
@@ -62,14 +81,38 @@ export function ChannelTable({ channels, lapCount }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((c, i) => (
+            {filtered.map((c, i) => {
+              const lname = norm(c.name);
+              const isSclu = SCLU_RATE_CHANNELS.has(lname);
+              const meta = isSclu ? metaByName.get(lname) : undefined;
+              const notes = c.notes ?? [];
+              const tooltip = notes.length ? notes.join(" · ") : undefined;
+              return (
               <TableRow
                 key={c.name}
                 className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${
                   c.badges.includes("verify") ? "pulse-hazard" : ""
                 }`}
               >
-                <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  <div title={tooltip} className="flex flex-col gap-0.5">
+                    <span>{c.name}</span>
+                    {meta && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-ink/60">
+                        range atteso da toolset:{" "}
+                        <span className="text-ink/80">
+                          {meta.minimum}–{meta.maximum}
+                          {meta.userUnit ? ` ${meta.userUnit}` : ""}
+                        </span>
+                      </span>
+                    )}
+                    {notes.length > 0 && (
+                      <span className="font-mono text-[9px] normal-case tracking-normal text-race-red/80">
+                        ⚠ {notes[0]}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {c.unit || "—"}
                 </TableCell>
@@ -103,7 +146,8 @@ export function ChannelTable({ channels, lapCount }: Props) {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </ScrollArea>

@@ -2,7 +2,8 @@
 // Pure function: takes ArrayBuffer + progress callback, returns LdFile (without fileName).
 
 import type { Channel, LdFile, SessionMeta } from "./types";
-import { getOverride } from "./channelOverrides";
+import { getOverride, SCLU_RATE_CHANNELS, isStuckOnMultiplesOf2778 } from "./channelOverrides";
+
 import { categorize } from "./categorize";
 import { segmentLaps } from "./laps";
 
@@ -142,6 +143,19 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
       }
       if (cnt === 0) { min = NaN; max = NaN; }
 
+      const ovrFull = getOverride(name, mult);
+      const notes: string[] = [...ovrFull.notes];
+
+      // Dynamic SCLU-rate check: ONLY for the SCLU rate group.
+      // Never apply to other channels (digital/enum/state channels legitimately
+      // sit on a few constant values like -1/0/1 and would false-positive).
+      const lname = (name || "").trim().toLowerCase();
+      if (SCLU_RATE_CHANNELS.has(lname) && isStuckOnMultiplesOf2778(values)) {
+        notes.push(
+          "valori sospetti, possibili artefatti di conversione, scala non confermata"
+        );
+      }
+
       channels.push({
         idx: i,
         name: name || `Channel ${i}`,
@@ -157,11 +171,13 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
         min,
         max,
         avg: cnt > 0 ? sum / cnt : NaN,
-        badges: getOverride(name, mult).badges,
+        badges: ovrFull.badges,
+        notes,
         category: categorize(name),
         empty: false,
       });
     } else {
+      const ovrFull = getOverride(name, mult);
       channels.push({
         idx: i,
         name: name || `Channel ${i}`,
@@ -177,11 +193,13 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
         min: NaN,
         max: NaN,
         avg: NaN,
-        badges: getOverride(name, mult).badges,
+        badges: ovrFull.badges,
+        notes: ovrFull.notes,
         category: categorize(name),
         empty: true,
       });
     }
+
 
     if (i % 16 === 0) {
       opts.onProgress?.(15 + Math.round((i / total) * 75), `Canale ${i + 1}/${total}`);

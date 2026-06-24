@@ -24,9 +24,12 @@ export interface Channel {
   avg: number;
   /** Badges to render in UI. */
   badges: ChannelBadge[];
+  /** Free-text notes shown in tooltip (verify reasons, dynamic warnings). */
+  notes: string[];
   category: ChannelCategory;
   /** Whether this channel is empty (nSamples 0). */
   empty: boolean;
+
 }
 
 export type ChannelCategory =
