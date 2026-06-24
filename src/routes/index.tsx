@@ -100,7 +100,7 @@ function Index() {
               />
             </EmptyState>
           ) : (
-            <div className="mx-auto w-full max-w-[1800px] space-y-6">
+            <div className="w-full min-w-0 space-y-3">
               {loader.error && (
                 <div className="paper-card border-race-red bg-race-red/5 p-3 text-sm">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-race-red">
