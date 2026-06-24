@@ -23,6 +23,7 @@ import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePa
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
+import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 
 import {
   Table,
