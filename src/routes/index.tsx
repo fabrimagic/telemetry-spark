@@ -144,6 +144,24 @@ function Index() {
                 </PaperPanel>
               ))}
 
+              {loader.files.map((f, i) => (
+                <PaperPanel
+                  key={`debrief-${i}`}
+                  id={`debrief-${i}`}
+                  eyebrow="Analysis"
+                  title="Session Debrief"
+                  meta={[
+                    { k: "File", v: f.fileName },
+                    { k: "Laps", v: String(f.laps.length) },
+                  ]}
+                >
+                  <SessionDebrief
+                    file={f}
+                    toolsetMeta={loader.toolsets[0]?.displayMeta}
+                  />
+                </PaperPanel>
+              ))}
+
               {loader.toolsets.map((t, i) => (
                 <div id={`ts-${i}`} key={`ts-${i}`}>
                   <ToolsetSummary toolset={t} ldFiles={loader.files} />
