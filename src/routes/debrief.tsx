@@ -167,14 +167,14 @@ function DebriefPage() {
 
   if (!file || !analysis) {
     return (
-      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8 font-mono">
-        <header className="border-b border-ink/30 pb-3">
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
+      <div className="w-full min-w-0 space-y-3 px-4 py-5 font-mono">
+        <header className="border-b border-border pb-2">
+          <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-race-red">
             ◉ Analysis
           </div>
-          <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
+          <h1 className="font-display text-2xl leading-none tracking-wider">Stint Analysis</h1>
         </header>
-        <div className="paper-card p-6 text-sm text-muted-foreground">
+        <div className="paper-card p-3 text-sm text-muted-foreground">
           Nessun file caricato. Vai su{" "}
           <Link to="/" className="text-race-red underline-offset-4 hover:underline">
             Overview
