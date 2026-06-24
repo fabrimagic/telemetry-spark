@@ -1,12 +1,19 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
-import { buildStintAnalysis, type LapRow, type LapTempCorner, type LapCoherence } from "@/lib/ld/stintAnalysis";
+import {
+  buildStintAnalysis,
+  type LapRow,
+  type LapTempCorner,
+  type LapCoherence,
+  type SetupChange,
+  type AbsHit,
+} from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrackMap } from "@/components/telemetry/TrackMap";
+import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
 import {
   Table,
   TableBody,
@@ -19,6 +26,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -34,6 +42,7 @@ function lapRowToLap(r: LapRow): Lap {
     absoluteIndex: r.absoluteLap,
   };
 }
+
 
 export const Route = createFileRoute("/debrief")({
   head: () => ({
