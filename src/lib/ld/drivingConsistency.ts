@@ -28,6 +28,7 @@ import {
   buildBrakingSignature,
   metricsForLap,
   type BrakingSignatureResult,
+  type PerLapZoneEntry,
   type SignatureRow,
 } from "@/lib/ld/brakingSignature";
 import {
