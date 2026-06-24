@@ -208,7 +208,7 @@ function buildPerLap(
 }
 
 export function buildLapTiming(file: LdFile): LapTimingResult {
-  const ch = findChannel(file.channels, "lap time prev");
+  const ch = resolveChannel(file.channels, "lapTimePrev");
   const oracleFastestSec = parseFastestTimeStr(file.meta.fastestTime);
   const oracleTotalLaps = file.meta.totalLaps;
 
