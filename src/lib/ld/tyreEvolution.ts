@@ -269,33 +269,56 @@ function buildSummary(
     if (warmup > 0) summary.warmupLaps = warmup;
   }
 
-  // Axle & side deltas across valid laps (using only available wheels)
-  const axleDeltas: number[] = [];
-  const sideDeltas: number[] = [];
-  for (const p of pts) {
-    const front: number[] = [];
-    const rear: number[] = [];
-    const left: number[] = [];
-    const right: number[] = [];
-    if (temp.sensorAvailable.fl && p.fl !== undefined) { front.push(p.fl); left.push(p.fl); }
-    if (temp.sensorAvailable.fr && p.fr !== undefined) { front.push(p.fr); right.push(p.fr); }
-    if (temp.sensorAvailable.rl && p.rl !== undefined) { rear.push(p.rl); left.push(p.rl); }
-    if (temp.sensorAvailable.rr && p.rr !== undefined) { rear.push(p.rr); right.push(p.rr); }
-    if (front.length > 0 && rear.length > 0) {
-      axleDeltas.push(
-        front.reduce((a, b) => a + b, 0) / front.length -
-          rear.reduce((a, b) => a + b, 0) / rear.length,
-      );
+  // Axle delta: only from homolateral pairs (FL-RL and/or FR-RR)
+  const leftAxleAvail = temp.sensorAvailable.fl && temp.sensorAvailable.rl;
+  const rightAxleAvail = temp.sensorAvailable.fr && temp.sensorAvailable.rr;
+  if (leftAxleAvail || rightAxleAvail) {
+    const axleDeltas: number[] = [];
+    for (const p of pts) {
+      const pairs: number[] = [];
+      if (leftAxleAvail && p.fl !== undefined && p.rl !== undefined) {
+        pairs.push(p.fl - p.rl);
+      }
+      if (rightAxleAvail && p.fr !== undefined && p.rr !== undefined) {
+        pairs.push(p.fr - p.rr);
+      }
+      if (pairs.length > 0) {
+        axleDeltas.push(pairs.reduce((a, b) => a + b, 0) / pairs.length);
+      }
     }
-    if (left.length > 0 && right.length > 0) {
-      sideDeltas.push(
-        left.reduce((a, b) => a + b, 0) / left.length -
-          right.reduce((a, b) => a + b, 0) / right.length,
-      );
+    const m = mean(axleDeltas);
+    if (m !== undefined) {
+      summary.axleDeltaAvg = m;
+      summary.axleDeltaPartial = !(leftAxleAvail && rightAxleAvail);
+      summary.axleDeltaSides = { left: leftAxleAvail, right: rightAxleAvail };
     }
   }
-  summary.axleDeltaAvg = mean(axleDeltas);
-  summary.sideDeltaAvg = mean(sideDeltas);
+
+  // Side delta: only from homoaxle pairs (FL-FR and/or RL-RR)
+  const frontSideAvail = temp.sensorAvailable.fl && temp.sensorAvailable.fr;
+  const rearSideAvail = temp.sensorAvailable.rl && temp.sensorAvailable.rr;
+  if (frontSideAvail || rearSideAvail) {
+    const sideDeltas: number[] = [];
+    for (const p of pts) {
+      const pairs: number[] = [];
+      if (frontSideAvail && p.fl !== undefined && p.fr !== undefined) {
+        pairs.push(p.fl - p.fr);
+      }
+      if (rearSideAvail && p.rl !== undefined && p.rr !== undefined) {
+        pairs.push(p.rl - p.rr);
+      }
+      if (pairs.length > 0) {
+        sideDeltas.push(pairs.reduce((a, b) => a + b, 0) / pairs.length);
+      }
+    }
+    const m = mean(sideDeltas);
+    if (m !== undefined) {
+      summary.sideDeltaAvg = m;
+      summary.sideDeltaPartial = !(frontSideAvail && rearSideAvail);
+      summary.sideDeltaAxles = { front: frontSideAvail, rear: rearSideAvail };
+    }
+  }
+
   return summary;
 }
 
