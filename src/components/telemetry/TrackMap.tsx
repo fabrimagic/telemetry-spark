@@ -121,9 +121,9 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="#1a1a1a"
-            strokeOpacity={0.15}
-            strokeWidth={14}
+            stroke="#ffce00"
+            strokeOpacity={0.25}
+            strokeWidth={16}
             strokeLinejoin="round"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
@@ -132,9 +132,9 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="#1a1a1a"
+            stroke="#ffce00"
             strokeOpacity={1}
-            strokeWidth={6}
+            strokeWidth={8}
             strokeLinejoin="round"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
