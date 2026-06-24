@@ -124,7 +124,7 @@ function Index() {
                 toolsets={loader.toolsets.length}
               />
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
                 {loader.files.flatMap((f, i) => [
                   <div key={`ld-${i}`} id={`ld-${i}`} className="min-w-0">
                     <PaperPanel
