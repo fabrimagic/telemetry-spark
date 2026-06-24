@@ -160,7 +160,7 @@ function DebriefPage() {
         <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
-        <TimingStatus timing={timing} />
+        <CoherenceStatus coherence={coherence} />
       </header>
 
 
@@ -200,7 +200,7 @@ function DebriefPage() {
             <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
               <TableRow className="border-b border-ink/30">
                 <TH>Lap</TH>
-                <TH align="right">Time</TH>
+                <TH align="right" title="Tempo approssimato (≈ 1 s) — il tempo preciso ufficiale è nell'Overview (.ldx)">Time ≈ s</TH>
                 {has.speed && <TH align="right">v max (km/h)</TH>}
                 {has.rpm && <TH align="right">RPM max</TH>}
                 {has.abs && <TH align="right">ABS</TH>}
@@ -219,7 +219,7 @@ function DebriefPage() {
                     L{r.lap}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    {fmtLapTime(r.durationS, verified)}
+                    {fmtLapTimeRough(r.durationS)}
                   </TableCell>
                   {has.speed && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
@@ -284,7 +284,7 @@ function DebriefPage() {
         ) : (
           <div className="space-y-5">
             <h3 className="font-mono text-sm font-bold tracking-widest">
-              L{selected.lap} · {fmtLapTime(selected.durationS, verified)}
+              L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
               {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
@@ -294,7 +294,6 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
-                verified={verified}
               />
             </Section>
 
