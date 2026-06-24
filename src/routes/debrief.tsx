@@ -299,6 +299,11 @@ function DebriefPage() {
               {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
+            {/* Track map for this lap */}
+            <Section title="Track Map">
+              <TrackMap file={file} refLap={lapRowToLap(selected)} />
+            </Section>
+
             {/* Channel traces vs lap distance */}
             <Section title="Channel Traces (vs Lap Distance)">
               <LapChannelTraces
@@ -307,6 +312,7 @@ function DebriefPage() {
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
               />
             </Section>
+
 
             {/* ABS hits */}
             {has.abs && (
