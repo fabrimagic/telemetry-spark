@@ -772,11 +772,16 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
+  cursorDist = null,
+  onCursorDistChange,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
+  cursorDist?: number | null;
+  onCursorDistChange?: (d: number | null) => void;
 }) {
+
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
     return (
