@@ -324,8 +324,6 @@ export function buildBrakingSignature(
   }
 
   // Gate 1: Lap Distance + at least one brake channel.
-  const lapCh = resolveComparisonChannels; // (just to keep imports referenced)
-  void lapCh;
   const refGrid0 = buildReferenceGrid(file, laps.find((l) => l.isFastest && l.isValidLap) ?? laps[0]);
   if (!refGrid0) {
     return {
