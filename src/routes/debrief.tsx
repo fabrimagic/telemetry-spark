@@ -823,7 +823,7 @@ function LapChannelTraces({
   onCursorDistChange?: (d: number | null) => void;
 }) {
 
-  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  const lapCh = findChannel(file, "lapDistance");
   if (!lapCh) {
     return (
       <p className="font-mono text-xs text-muted-foreground">
