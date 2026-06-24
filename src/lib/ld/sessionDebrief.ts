@@ -144,7 +144,7 @@ export function buildSessionDebrief(
   for (const c of file.channels) {
     if (c.empty || c.nSamples === 0) continue;
     const meta = metaByName.get(norm(c.name));
-    if (!meta || !meta.alarmEnabled || !meta.hasSignificantRange) continue;
+    if (!meta || !meta.alarmEnabled || !meta.hasSignificantAlarmRange) continue;
     const lo = meta.alarmMinimum;
     const hi = meta.alarmMaximum;
     if (lo === undefined && hi === undefined) continue;
