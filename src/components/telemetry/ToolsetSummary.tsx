@@ -179,8 +179,9 @@ export function ToolsetSummary({ toolset, ldFiles }: Props) {
                     CAN{b.id}
                   </span>
                   <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {b.label ? `${b.channelCount} ch` : "n/d"}
+                    bus
                   </span>
+
                 </div>
                 <div className="mt-2 truncate font-mono text-xs uppercase tracking-wider text-foreground">
                   {b.label || "—"}
