@@ -1,6 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { buildLapTiming, type LapTimingResult } from "@/lib/ld/lapTiming";
 
 /* ===================== Types ===================== */
 
