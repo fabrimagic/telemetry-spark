@@ -574,7 +574,7 @@ export function buildStintAnalysis(
     absHits,
     setupChanges,
     refLapLength,
-    timing,
+    coherence,
     has: {
       speed: !!speed,
       rpm: !!rpm,
@@ -596,6 +596,15 @@ export function buildStintAnalysis(
     },
   };
 }
+
+function parseFastestTimeStr(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const m = s.trim().match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (!m) return undefined;
+  const min = Number(m[1]);
+  const sec = Number(m[2]);
+  if (!Number.isFinite(min) || !Number.isFinite(sec)) return undefined;
+  return min * 60 + sec;
 
 function meanValid(arr: Float32Array): number | undefined {
   let sum = 0;
