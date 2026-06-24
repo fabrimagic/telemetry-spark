@@ -1,7 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
-import { buildLapTiming, type LapTimingResult } from "@/lib/ld/lapTiming";
+
 
 /* ===================== Types ===================== */
 
@@ -43,8 +43,15 @@ export interface LapTempCorner {
 
 export interface LapRow {
   lap: number;
+  /** Absolute car-side counter (from "Lap Number" channel), if available. */
+  absoluteLap?: number;
   tStart: number;
   tEnd: number;
+  /**
+   * Lap duration in seconds, derived from "Lap Number" boundaries (≈ 1 s
+   * resolution). Not millisecond-accurate — see SessionMeta.fastestTime
+   * (.ldx) for the only authoritative precise timing.
+   */
   durationS: number;
   maxSpeed?: number;
   maxRpm?: number;
@@ -71,6 +78,29 @@ export interface SetupChange {
   next: number;
 }
 
+export interface LapCoherence {
+  /** Total segments returned by laps.ts (after Lap-Number segmentation). */
+  totalSegments: number;
+  /** Of those, how many pass the valid-lap criterion (duration + movement). */
+  validLaps: number;
+  /** Session-progressive index of the fastest valid lap (1..N), if any. */
+  fastestLapSession?: number;
+  /** Reference fastest lap from the .ldx oracle (if available). */
+  oracleFastestLap?: number;
+  /** Reference fastest lap time in seconds (mm:ss.mmm precision) from .ldx. */
+  oracleFastestSec?: number;
+  /** Reference total laps from the .ldx oracle. */
+  oracleTotalLaps?: number;
+  /**
+   * True when the Lap-Number-based segmentation reproduces the .ldx oracle:
+   * total valid laps within tolerance of oracleTotalLaps AND the fastest
+   * valid lap (session index) matches oracleFastestLap.
+   */
+  alignedWithOracle: boolean;
+}
+
+
+
 export interface StintAnalysis {
   conditions: SessionConditions;
   laps: LapRow[];
@@ -78,8 +108,13 @@ export interface StintAnalysis {
   setupChanges: SetupChange[];
   /** Median nominal lap length (m) computed from valid laps; undefined if not available. */
   refLapLength?: number;
-  /** Lap timing recovered from "lap time prev" + .ldx oracle check. */
-  timing: LapTimingResult;
+  /**
+   * Coherence summary between the Lap-Number-based segmentation and the
+   * authoritative .ldx oracle (fastest lap + total laps). Per-lap times in
+   * `laps[]` are approximate (≈ 1 s resolution); the only precise lap time
+   * is `oracleFastestSec` (mm:ss.mmm) shown by the Overview.
+   */
+  coherence: LapCoherence;
   /** Whether each per-channel group has data; lets UI omit empty sections. */
   has: {
     speed: boolean;
@@ -345,6 +380,7 @@ export function buildStintAnalysis(
     const durValid = isValidDuration(lap.duration);
     return {
       lap: lap.index,
+      absoluteLap: lap.absoluteIndex,
       tStart: lap.tStart,
       tEnd: lap.tEnd,
       durationS: lap.duration,
@@ -390,16 +426,12 @@ export function buildStintAnalysis(
     return { ...row, isValidLap: _durationValid && movementOk };
   });
 
-  // ----- Lap timing: try to recover precise per-lap times from "lap time prev" -----
-  const timing = buildLapTiming(file);
-  if (timing.timingVerified) {
-    for (const row of lapRows) {
-      const precise = timing.perLap.get(row.lap);
-      if (precise !== undefined && Number.isFinite(precise) && precise > 0) {
-        row.durationS = precise;
-      }
-    }
-  }
+  // NOTE: precise per-lap times are NOT reconstructed from telemetry. The
+  // only authoritative timing is the .ldx oracle (fastest lap), shown by the
+  // Overview. Per-lap `durationS` here stays at the Lap-Number-derived
+  // ≈ 1 s resolution and is labelled as approximate in the UI.
+
+
 
   // Fastest is taken only among combined-valid laps (uses precise times when verified).
   let bestIdx = -1;
@@ -412,6 +444,29 @@ export function buildStintAnalysis(
     }
   });
   if (bestIdx >= 0) lapRows[bestIdx].isFastest = true;
+
+  // ----- Coherence with .ldx oracle -----
+  const validCount = lapRows.filter((r) => r.isValidLap).length;
+  const fastestLapSession = bestIdx >= 0 ? lapRows[bestIdx].lap : undefined;
+  const oracleFastestSec = parseFastestTimeStr(file.meta.fastestTime);
+  const oracleFastestLap = file.meta.fastestLap;
+  const oracleTotalLaps = file.meta.totalLaps;
+  const COUNT_TOL = 3;
+  const countOk =
+    oracleTotalLaps !== undefined && Math.abs(validCount - oracleTotalLaps) <= COUNT_TOL;
+  const fastestOk =
+    oracleFastestLap !== undefined &&
+    fastestLapSession !== undefined &&
+    fastestLapSession === oracleFastestLap;
+  const coherence: LapCoherence = {
+    totalSegments: lapRows.length,
+    validLaps: validCount,
+    fastestLapSession,
+    oracleFastestLap,
+    oracleFastestSec,
+    oracleTotalLaps,
+    alignedWithOracle: !!(countOk && fastestOk),
+  };
 
   // ----- Reference lap length (median of max Lap Distance across valid laps) -----
   let refLapLength: number | undefined;
@@ -519,7 +574,7 @@ export function buildStintAnalysis(
     absHits,
     setupChanges,
     refLapLength,
-    timing,
+    coherence,
     has: {
       speed: !!speed,
       rpm: !!rpm,
@@ -541,6 +596,18 @@ export function buildStintAnalysis(
     },
   };
 }
+
+function parseFastestTimeStr(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const m = s.trim().match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (!m) return undefined;
+  const min = Number(m[1]);
+  const sec = Number(m[2]);
+  if (!Number.isFinite(min) || !Number.isFinite(sec)) return undefined;
+  return min * 60 + sec;
+}
+
+
 
 function meanValid(arr: Float32Array): number | undefined {
   let sum = 0;

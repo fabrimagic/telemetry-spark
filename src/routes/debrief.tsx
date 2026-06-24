@@ -1,8 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
-import { buildStintAnalysis, type LapRow, type LapTempCorner } from "@/lib/ld/stintAnalysis";
-import type { LapTimingResult } from "@/lib/ld/lapTiming";
+import { buildStintAnalysis, type LapRow, type LapTempCorner, type LapCoherence } from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
@@ -50,16 +49,23 @@ function fmtTime(s: number | undefined): string {
   const r = s - m * 60;
   return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
 }
-function fmtLapTime(s: number | undefined, verified = true): string {
+/**
+ * Lap time rendered at ≈ 1 s resolution (Lap-Number segmentation).
+ * The only authoritative precise lap time is the .ldx fastest, shown by the Overview.
+ */
+function fmtLapTimeRough(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
+  const m = Math.floor(s / 60);
+  const r = Math.round(s - m * 60);
+  const mm = r === 60 ? m + 1 : m;
+  const ss = r === 60 ? 0 : r;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
+}
+/** Precise mm:ss.mmm — use ONLY for the .ldx oracle reference. */
+function fmtLapTimePrecise(s: number | undefined): string {
   if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
   const m = Math.floor(s / 60);
   const r = s - m * 60;
-  if (!verified) {
-    const rr = Math.round(r);
-    const mm = rr === 60 ? m + 1 : m;
-    const ss = rr === 60 ? 0 : rr;
-    return `${mm}:${String(ss).padStart(2, "0")}`;
-  }
   return `${m}:${r.toFixed(3).padStart(6, "0")}`;
 }
 
@@ -136,8 +142,8 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has, refLapLength, timing } = analysis;
-  const verified = timing.timingVerified;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength, coherence } = analysis;
+
 
   const visibleLaps = laps.filter((l) =>
     lapFilter === "all" ? true : lapFilter === "valid" ? l.isValidLap : !l.isValidLap,
@@ -154,7 +160,7 @@ function DebriefPage() {
         <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
-        <TimingStatus timing={timing} />
+        <CoherenceStatus coherence={coherence} />
       </header>
 
 
@@ -194,7 +200,7 @@ function DebriefPage() {
             <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
               <TableRow className="border-b border-ink/30">
                 <TH>Lap</TH>
-                <TH align="right">Time</TH>
+                <TH align="right">Time ≈ s</TH>
                 {has.speed && <TH align="right">v max (km/h)</TH>}
                 {has.rpm && <TH align="right">RPM max</TH>}
                 {has.abs && <TH align="right">ABS</TH>}
@@ -213,7 +219,7 @@ function DebriefPage() {
                     L{r.lap}
                   </TableCell>
                   <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    {fmtLapTime(r.durationS, verified)}
+                    {fmtLapTimeRough(r.durationS)}
                   </TableCell>
                   {has.speed && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
@@ -278,7 +284,7 @@ function DebriefPage() {
         ) : (
           <div className="space-y-5">
             <h3 className="font-mono text-sm font-bold tracking-widest">
-              L{selected.lap} · {fmtLapTime(selected.durationS, verified)}
+              L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
               {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
@@ -288,7 +294,6 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
-                verified={verified}
               />
             </Section>
 
@@ -647,12 +652,10 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
-  verified = true,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
-  verified?: boolean;
 }) {
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
@@ -700,7 +703,7 @@ function LapChannelTraces({
     <div className="space-y-3">
       {refLap && (
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS, verified)}) — linea attenuata
+          Sovrimpressione: L{refLap.lap} (fastest, ≈ {fmtLapTimeRough(refLap.durationS)}) — linea attenuata
         </div>
       )}
       {traces.map(({ spec, data, ref }) => {
@@ -775,55 +778,53 @@ function LapChannelTraces({
   );
 }
 
-/* ============ Timing verification status banner ============ */
-function fmtMs(s: number | undefined): string {
-  if (s === undefined || !Number.isFinite(s)) return "—";
-  const m = Math.floor(s / 60);
-  const r = s - m * 60;
-  return `${m}:${r.toFixed(3).padStart(6, "0")}`;
-}
+/* ============ Coherence status banner ============ */
 
-function TimingStatus({ timing }: { timing: LapTimingResult }) {
+function CoherenceStatus({ coherence }: { coherence: LapCoherence }) {
   const {
-    timingVerified,
-    status,
-    fastestFound,
-    countFound,
+    totalSegments,
+    validLaps,
+    fastestLapSession,
+    oracleFastestLap,
     oracleFastestSec,
     oracleTotalLaps,
-    decoding,
-  } = timing;
+    alignedWithOracle,
+  } = coherence;
 
-  let label: string;
-  let tone: "ok" | "warn";
-  if (timingVerified) {
-    tone = "ok";
-    const dec = decoding ? ` · codifica: ${decoding}` : "";
-    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})${dec}`;
-  } else {
-    tone = "warn";
-    const reason =
-      status === "no-channel"
-        ? "canale lap time prev assente"
-        : status === "no-oracle"
-          ? "summary .ldx mancante"
-          : status === "no-decoding"
-            ? `nessuna codifica del canale riproduce ldx ${fmtMs(oracleFastestSec)} (fastest grezzo ${fmtMs(fastestFound)})`
-            : status === "fastest-mismatch"
-              ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
-              : status === "count-mismatch"
-                ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}${decoding ? ` (codifica: ${decoding})` : ""}`
-                : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
-    label = `Tempi stimati, non verificati col beacon · ${reason}`;
-  }
+  const oracleStr =
+    oracleFastestSec !== undefined && oracleFastestLap !== undefined
+      ? `ldx: fastest L${oracleFastestLap} ${fmtLapTimePrecise(oracleFastestSec)}${oracleTotalLaps !== undefined ? `, ${oracleTotalLaps} giri` : ""}`
+      : "ldx non disponibile";
+
+  const segStr =
+    `Segmentazione Lap Number: ${totalSegments} segmenti, ${validLaps} validi` +
+    (fastestLapSession !== undefined ? `, riferimento L${fastestLapSession}` : "");
+
+  const alignedStr =
+    oracleFastestLap !== undefined
+      ? alignedWithOracle
+        ? "allineato con ldx"
+        : "non allineato con ldx"
+      : "";
+
+  const tone: "ok" | "warn" = alignedWithOracle ? "ok" : "warn";
   const cls =
     tone === "ok"
       ? "border-race-red text-race-red"
       : "border-ink/40 text-muted-foreground";
+
   return (
-    <div className={`mt-2 inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
-      {label}
+    <div className="mt-2 space-y-1">
+      <div className={`inline-block border px-2 py-1 text-[10px] uppercase tracking-widest ${cls}`}>
+        {segStr}
+        {alignedStr ? ` · ${alignedStr}` : ""}
+        {` · ${oracleStr}`}
+      </div>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        Tempi per-giro qui sotto ≈ 1 s (da Lap Number). Il tempo preciso ufficiale è quello dell'Overview (.ldx).
+      </div>
     </div>
   );
 }
+
 

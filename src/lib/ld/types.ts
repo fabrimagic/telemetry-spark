@@ -56,12 +56,15 @@ export interface SessionMeta {
 }
 
 export interface Lap {
+  /** Session-visible progressive index (1..N), aligned with .ldx numbering. */
   index: number;
   /** Lap time in seconds (derived from samples). */
   duration: number;
   /** Start sample time (seconds since file start, on a 1Hz-ish global axis). */
   tStart: number;
   tEnd: number;
+  /** Absolute car-side counter from the "Lap Number" channel (debug/reference). */
+  absoluteIndex?: number;
 }
 
 export interface LdFile {
