@@ -259,6 +259,7 @@ function DebriefPage() {
           <div className="space-y-5">
             <h3 className="font-mono text-sm font-bold tracking-widest">
               L{selected.lap} · {fmtLapTime(selected.durationS)}
+              {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
             </h3>
 
             {/* ABS hits */}
