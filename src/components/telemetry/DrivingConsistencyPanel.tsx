@@ -291,7 +291,7 @@ function DriftRadar({
           <span className="inline-block h-2 w-3" style={{ background: "hsl(var(--race-red))" }} /> 2ª metà
         </span>
         <span className="uppercase tracking-widest">
-          Ogni asse è normalizzato sul proprio range (1ª + 2ª metà di quella zona) + padding 25%.
+          Scala condivisa tra le zone per la metrica selezionata (min/max globale + padding 10%): la distanza tra 1ª e 2ª metà su ciascun asse riflette l'entità reale della deriva. Curve lente e veloci stanno a raggi diversi perché hanno livelli assoluti diversi — è fisica, non un difetto. L'area complessiva non è una grandezza fisica.
         </span>
       </div>
     </div>
