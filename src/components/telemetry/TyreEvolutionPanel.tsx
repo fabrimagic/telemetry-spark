@@ -216,7 +216,15 @@ export function TyreEvolutionPanel({
             <dt className="text-muted-foreground">Δ asse F–R medio</dt>
             <dd className="tabular-nums">
               {summary.axleDeltaAvg !== undefined
-                ? `${fmt(summary.axleDeltaAvg, 1)} °C`
+                ? `${fmt(summary.axleDeltaAvg, 1)} °C${
+                    summary.axleDeltaPartial
+                      ? summary.axleDeltaSides?.left && !summary.axleDeltaSides?.right
+                        ? " (solo lato sx)"
+                        : summary.axleDeltaSides?.right && !summary.axleDeltaSides?.left
+                          ? " (solo lato dx)"
+                          : " (parziale — confronto non simmetrico)"
+                      : ""
+                  }`
                 : "—"}
             </dd>
           </div>
@@ -224,10 +232,19 @@ export function TyreEvolutionPanel({
             <dt className="text-muted-foreground">Δ lato L–R medio</dt>
             <dd className="tabular-nums">
               {summary.sideDeltaAvg !== undefined
-                ? `${fmt(summary.sideDeltaAvg, 1)} °C`
+                ? `${fmt(summary.sideDeltaAvg, 1)} °C${
+                    summary.sideDeltaPartial
+                      ? summary.sideDeltaAxles?.front && !summary.sideDeltaAxles?.rear
+                        ? " (solo ant.)"
+                        : summary.sideDeltaAxles?.rear && !summary.sideDeltaAxles?.front
+                          ? " (solo post.)"
+                          : " (parziale — confronto non simmetrico)"
+                      : ""
+                  }`
                 : "—"}
             </dd>
           </div>
+
           {WHEELS.filter((w) => summary.totalTempDelta[w] !== undefined).map((w) => (
             <div key={w} className="flex justify-between gap-3">
               <dt className="text-muted-foreground">
