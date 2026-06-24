@@ -646,10 +646,12 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
+  verified = true,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
+  verified?: boolean;
 }) {
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
