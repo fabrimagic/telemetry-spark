@@ -1,5 +1,5 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 /**
  * Lap timing recovered from the 100 Hz "lap time prev" channel, cross-checked
