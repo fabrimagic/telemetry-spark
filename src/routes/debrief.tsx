@@ -49,10 +49,16 @@ function fmtTime(s: number | undefined): string {
   const r = s - m * 60;
   return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
 }
-function fmtLapTime(s: number | undefined): string {
+function fmtLapTime(s: number | undefined, verified = true): string {
   if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
   const m = Math.floor(s / 60);
   const r = s - m * 60;
+  if (!verified) {
+    const rr = Math.round(r);
+    const mm = rr === 60 ? m + 1 : m;
+    const ss = rr === 60 ? 0 : rr;
+    return `${mm}:${String(ss).padStart(2, "0")}`;
+  }
   return `${m}:${r.toFixed(3).padStart(6, "0")}`;
 }
 
