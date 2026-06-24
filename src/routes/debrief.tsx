@@ -135,7 +135,8 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has, refLapLength } = analysis;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength, timing } = analysis;
+  const verified = timing.timingVerified;
 
   const visibleLaps = laps.filter((l) =>
     lapFilter === "all" ? true : lapFilter === "valid" ? l.isValidLap : !l.isValidLap,
@@ -152,7 +153,9 @@ function DebriefPage() {
         <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
+        <TimingStatus timing={timing} />
       </header>
+
 
       {/* ---------- Conditions ribbon ---------- */}
       <PaperPanel eyebrow="Session" title="Conditions">
