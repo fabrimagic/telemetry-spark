@@ -791,13 +791,15 @@ function TimingStatus({ timing }: { timing: LapTimingResult }) {
     countFound,
     oracleFastestSec,
     oracleTotalLaps,
+    decoding,
   } = timing;
 
   let label: string;
   let tone: "ok" | "warn";
   if (timingVerified) {
     tone = "ok";
-    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})`;
+    const dec = decoding ? ` · codifica: ${decoding}` : "";
+    label = `Tempi giro verificati col canale lap time prev · fastest ${fmtMs(fastestFound)} ≈ ldx ${fmtMs(oracleFastestSec)} · ${countFound} giri (ldx ${oracleTotalLaps})${dec}`;
   } else {
     tone = "warn";
     const reason =
@@ -805,11 +807,13 @@ function TimingStatus({ timing }: { timing: LapTimingResult }) {
         ? "canale lap time prev assente"
         : status === "no-oracle"
           ? "summary .ldx mancante"
-          : status === "fastest-mismatch"
-            ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
-            : status === "count-mismatch"
-              ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}`
-              : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
+          : status === "no-decoding"
+            ? `nessuna codifica del canale riproduce ldx ${fmtMs(oracleFastestSec)} (fastest grezzo ${fmtMs(fastestFound)})`
+            : status === "fastest-mismatch"
+              ? `fastest ${fmtMs(fastestFound)} ≠ ldx ${fmtMs(oracleFastestSec)}`
+              : status === "count-mismatch"
+                ? `giri trovati ${countFound} ≠ ldx ${oracleTotalLaps}${decoding ? ` (codifica: ${decoding})` : ""}`
+                : `fastest ${fmtMs(fastestFound)} vs ldx ${fmtMs(oracleFastestSec)}, ${countFound} vs ${oracleTotalLaps}`;
     label = `Tempi stimati, non verificati col beacon · ${reason}`;
   }
   const cls =
