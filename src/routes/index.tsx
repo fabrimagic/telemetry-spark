@@ -5,6 +5,7 @@ import { FileDropzone } from "@/components/telemetry/FileDropzone";
 import { ChannelTable } from "@/components/telemetry/ChannelTable";
 import { ToolsetSummary } from "@/components/telemetry/ToolsetSummary";
 import { Badge } from "@/components/ui/badge";
+import { exportSummaryPdf } from "@/lib/export/exportPdf";
 
 export const Route = createFileRoute("/")({
   head: () => ({
