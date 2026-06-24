@@ -125,7 +125,7 @@ export function TrackMap({
             d={pathD}
             fill="none"
             stroke="hsl(var(--ink))"
-            strokeOpacity={0.75}
+            strokeOpacity={1}
             strokeWidth={6}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -207,7 +207,7 @@ export function TrackMap({
       </div>
       <div className="flex flex-wrap gap-x-3 text-[10px] uppercase tracking-widest text-muted-foreground">
         <span>sorgente: {source}</span>
-        <span>{sampleCount} campioni</span>
+        <span>{sampleCount} punti contorno</span>
         {lapIndex && <span>lap rif. {Math.round(lapIndex.lapLength)} m</span>}
         <span className="text-race-red">● start/finish</span>
         {absPts.length > 0 && <span style={{ color: "#c97a00" }}>● abs</span>}

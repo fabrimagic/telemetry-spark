@@ -122,70 +122,58 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
   const picked = pickGpsChannels(file.channels);
   if (!picked) return null;
   const { lat, lon, source } = picked;
+  const latFreq = lat.freq || 0;
+  const lonFreq = lon.freq || 0;
+  if (latFreq <= 0 || lonFreq <= 0) return null;
   if (lat.values.length === 0 || lon.values.length === 0) return null;
 
-  // 1) Collect plausible samples across the whole stint to compute medians.
-  const latFreq = lat.freq || 1;
-  const lonFreq = lon.freq || 1;
-  const baseFreq = Math.min(latFreq, lonFreq);
-  const latStep = Math.max(1, Math.round(latFreq / baseFreq));
-  const lonStep = Math.max(1, Math.round(lonFreq / baseFreq));
-  const n = Math.min(
-    Math.floor(lat.values.length / latStep),
-    Math.floor(lon.values.length / lonStep),
-  );
-
-  const lats: number[] = [];
-  const lons: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const la = lat.values[i * latStep];
-    const lo = lon.values[i * lonStep];
-    if (!isPlausibleLatLon(la, lo)) continue;
-    lats.push(la);
-    lons.push(lo);
-  }
-  if (lats.length < 50) return null;
-
-  const lat0 = median(lats);
-  const lon0 = median(lons);
-
-  // 2) Pick a reference lap. Prefer the caller's choice, otherwise the
-  //    longest-duration lap (best proxy for a complete lap in the file).
+  // 1) Pick a reference lap (caller, or longest-duration as a proxy for a full lap).
   let ref = refLap ?? null;
-  if (!ref || !Number.isFinite(ref.tEnd - ref.tStart)) {
+  if (!ref || !Number.isFinite(ref.tEnd - ref.tStart) || ref.tEnd <= ref.tStart) {
     ref =
       file.laps.length > 0
         ? [...file.laps].sort((a, b) => b.tEnd - b.tStart - (a.tEnd - a.tStart))[0]
         : null;
   }
   if (!ref) return null;
+  const tStart = ref.tStart;
+  const tEnd = ref.tEnd;
+  if (!(tEnd > tStart)) return null;
 
-  // 3) Extract GPS samples that fall inside the reference lap window,
-  //    rejecting anything too far from the session median (residual sentinels).
+  // 2) Sample lat/lon at a fixed 5 Hz cadence across the lap window. Each
+  //    channel is indexed at its own native frequency: i = round(t * freq).
   const lapDist = findChannel(file.channels, "lap distance");
   const ldFreq = lapDist?.freq ?? 0;
   const ldLen = lapDist?.values.length ?? 0;
 
-  const iStart = Math.max(0, Math.floor(ref.tStart * baseFreq));
-  const iEnd = Math.min(n, Math.ceil(ref.tEnd * baseFreq));
-
+  const STEP_S = 0.2; // 5 samples per second
   type Raw = { lat: number; lon: number; t: number; d?: number };
-  const samples: Raw[] = [];
-  for (let i = iStart; i < iEnd; i++) {
-    const la = lat.values[i * latStep];
-    const lo = lon.values[i * lonStep];
+  const raw: Raw[] = [];
+  for (let t = tStart; t <= tEnd; t += STEP_S) {
+    const iLat = Math.round(t * latFreq);
+    const iLon = Math.round(t * lonFreq);
+    if (iLat < 0 || iLat >= lat.values.length) continue;
+    if (iLon < 0 || iLon >= lon.values.length) continue;
+    const la = lat.values[iLat];
+    const lo = lon.values[iLon];
     if (!isPlausibleLatLon(la, lo)) continue;
-    if (Math.abs(la - lat0) > DEG_TOL || Math.abs(lo - lon0) > DEG_TOL) continue;
-    const t = i / baseFreq;
     let d: number | undefined;
-    if (lapDist && ldFreq > 0) {
+    if (lapDist && ldFreq > 0 && ldLen > 0) {
       const j = Math.min(ldLen - 1, Math.max(0, Math.round(t * ldFreq)));
       const dv = lapDist.values[j];
       if (Number.isFinite(dv) && dv >= 0) d = dv;
     }
-    samples.push({ lat: la, lon: lo, t, d });
+    raw.push({ lat: la, lon: lo, t, d });
   }
-  if (samples.length < 50) return null;
+  if (raw.length < 30) return null;
+
+  // 3) Reject residual outliers using the median of the lap samples.
+  const lat0 = median(raw.map((r) => r.lat));
+  const lon0 = median(raw.map((r) => r.lon));
+  const samples = raw.filter(
+    (r) => Math.abs(r.lat - lat0) <= DEG_TOL && Math.abs(r.lon - lon0) <= DEG_TOL,
+  );
+  if (samples.length < 30) return null;
 
   // 4) Local equirectangular projection in metres.
   const cosLat0 = Math.cos((lat0 * Math.PI) / 180);
@@ -241,7 +229,8 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
     y: p.wy * scale + offsetY,
   }));
 
-  // 6) Lap-distance index (sorted, monotonic-ish along the lap).
+  // 6) Lap-distance index, sorted by distance, from the same lap samples
+  //    so that pointAt() returns positions exactly on the drawn outline.
   let lapIndex: LapDistanceIndex | undefined;
   if (lapDist) {
     const indexed: LapDistanceSample[] = [];
@@ -258,12 +247,10 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
         lapLength,
         pointAt(d: number): Pt | null {
           if (!Number.isFinite(d) || indexed.length === 0) return null;
-          // Wrap d into [0, lapLength] if a lap length is meaningful.
           let dd = d;
           if (lapLength > 0) {
             dd = ((d % lapLength) + lapLength) % lapLength;
           }
-          // Binary search.
           let lo = 0;
           let hi = indexed.length - 1;
           if (dd <= indexed[0].d) return { x: indexed[0].x, y: indexed[0].y };
@@ -283,11 +270,10 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
     }
   }
 
-  // 7) Direction hint: vector from first outline point to a point a short
-  //    distance along the trace.
+  // 7) Direction hint from the first ~1 s of the lap.
   let directionHint: TrackMap["directionHint"];
-  if (outline.length > 20) {
-    directionHint = { from: outline[0], to: outline[Math.min(outline.length - 1, 20)] };
+  if (outline.length > 6) {
+    directionHint = { from: outline[0], to: outline[Math.min(outline.length - 1, 5)] };
   }
 
   return {
@@ -299,6 +285,6 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
     lapIndex,
     project,
     source,
-    sampleCount: samples.length,
+    sampleCount: outline.length,
   };
 }
