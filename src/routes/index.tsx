@@ -100,7 +100,7 @@ function Index() {
               />
             </EmptyState>
           ) : (
-            <div className="mx-auto max-w-6xl space-y-8">
+            <div className="mx-auto w-full max-w-[1800px] space-y-6">
               {loader.error && (
                 <div className="paper-card border-race-red bg-race-red/5 p-3 text-sm">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-race-red">
@@ -124,48 +124,47 @@ function Index() {
                 toolsets={loader.toolsets.length}
               />
 
-              {loader.files.map((f, i) => (
-                <div key={`ld-wrap-${i}`} className="flex flex-col gap-6">
-                  <PaperPanel
-                    key={`ld-${i}`}
-                    id={`ld-${i}`}
-                    eyebrow="Telemetry"
-                    title={f.fileName}
-                    meta={[
-                      { k: "Channels", v: String(f.channels.length) },
-                      { k: "Laps", v: String(f.laps.length) },
-                    ]}
-                  >
-                    <ChannelTable
-                      channels={f.channels}
-                      lapCount={f.laps.length}
-                      toolsetMeta={loader.toolsets[0]?.displayMeta}
-                    />
-                  </PaperPanel>
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+                {loader.files.flatMap((f, i) => [
+                  <div key={`ld-${i}`} id={`ld-${i}`} className="min-w-0">
+                    <PaperPanel
+                      eyebrow="Telemetry"
+                      title={f.fileName}
+                      meta={[
+                        { k: "Channels", v: String(f.channels.length) },
+                        { k: "Laps", v: String(f.laps.length) },
+                      ]}
+                    >
+                      <ChannelTable
+                        channels={f.channels}
+                        lapCount={f.laps.length}
+                        toolsetMeta={loader.toolsets[0]?.displayMeta}
+                      />
+                    </PaperPanel>
+                  </div>,
+                  <div key={`debrief-${i}`} id={`debrief-${i}`} className="min-w-0">
+                    <PaperPanel
+                      eyebrow="Analysis"
+                      title="Session Debrief"
+                      meta={[
+                        { k: "File", v: f.fileName },
+                        { k: "Laps", v: String(f.laps.length) },
+                      ]}
+                    >
+                      <SessionDebrief
+                        file={f}
+                        toolsetMeta={loader.toolsets[0]?.displayMeta}
+                      />
+                    </PaperPanel>
+                  </div>,
+                ])}
 
-                  <PaperPanel
-                    key={`debrief-${i}`}
-                    id={`debrief-${i}`}
-                    eyebrow="Analysis"
-                    title="Session Debrief"
-                    meta={[
-                      { k: "File", v: f.fileName },
-                      { k: "Laps", v: String(f.laps.length) },
-                    ]}
-                  >
-                    <SessionDebrief
-                      file={f}
-                      toolsetMeta={loader.toolsets[0]?.displayMeta}
-                    />
-                  </PaperPanel>
-                </div>
-              ))}
-
-              {loader.toolsets.map((t, i) => (
-                <div id={`ts-${i}`} key={`ts-${i}`}>
-                  <ToolsetSummary toolset={t} ldFiles={loader.files} />
-                </div>
-              ))}
+                {loader.toolsets.map((t, i) => (
+                  <div id={`ts-${i}`} key={`ts-${i}`} className="min-w-0">
+                    <ToolsetSummary toolset={t} ldFiles={loader.files} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </main>

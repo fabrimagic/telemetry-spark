@@ -238,7 +238,7 @@ function DebriefPage() {
 
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 px-6 py-8">
       <header className="border-b border-ink/30 pb-3 font-mono">
         <div className="text-[10px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
         <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
@@ -248,281 +248,303 @@ function DebriefPage() {
         <CoherenceStatus coherence={coherence} />
       </header>
 
-
-      {/* ---------- Conditions ribbon ---------- */}
-      <PaperPanel eyebrow="Session" title="Conditions">
-        <div className="grid grid-cols-2 gap-3 font-mono text-xs sm:grid-cols-4">
-          <Cond label="Wet (log B wet)" value={conditions.wetPct === undefined ? "—" : `${fmt(conditions.wetPct, 0)} %`} highlight={!!conditions.wetPct && conditions.wetPct > 50} />
-          <Cond label="Air Temp" value={conditions.airTempAvg === undefined ? "—" : `${fmt(conditions.airTempAvg, 1)} °C`} />
-          <Cond label="Humidity" value={conditions.humidityAvg === undefined ? "—" : `${fmt(conditions.humidityAvg, 1)} %`} />
-          <Cond label="Air Pressure" value={conditions.airPressureAvg === undefined ? "—" : `${fmt(conditions.airPressureAvg, 1)} mbar`} />
+      <div className="grid grid-cols-12 gap-6">
+        {/* ---------- Conditions ribbon ---------- */}
+        <div className="col-span-12 min-w-0 xl:col-span-4">
+          <PaperPanel eyebrow="Session" title="Conditions">
+            <div className="grid grid-cols-2 gap-3 font-mono text-xs">
+              <Cond label="Wet (log B wet)" value={conditions.wetPct === undefined ? "—" : `${fmt(conditions.wetPct, 0)} %`} highlight={!!conditions.wetPct && conditions.wetPct > 50} />
+              <Cond label="Air Temp" value={conditions.airTempAvg === undefined ? "—" : `${fmt(conditions.airTempAvg, 1)} °C`} />
+              <Cond label="Humidity" value={conditions.humidityAvg === undefined ? "—" : `${fmt(conditions.humidityAvg, 1)} %`} />
+              <Cond label="Air Pressure" value={conditions.airPressureAvg === undefined ? "—" : `${fmt(conditions.airPressureAvg, 1)} mbar`} />
+            </div>
+          </PaperPanel>
         </div>
-      </PaperPanel>
 
-      {/* ---------- Per-lap table ---------- */}
-      <PaperPanel eyebrow="Per Lap" title="Lap Table">
-        <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Mostra:
-          </span>
-          {(["all", "valid", "invalid"] as const).map((opt) => (
-            <Button
-              key={opt}
-              size="sm"
-              variant={lapFilter === opt ? "default" : "outline"}
-              onClick={() => setLapFilter(opt)}
-              className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
-            >
-              {opt === "all" ? "tutti" : opt === "valid" ? "solo validi" : "solo non validi"}
-            </Button>
-          ))}
-          <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {visibleLaps.length}/{laps.length}
-          </span>
-        </div>
-        <div className="max-h-[520px] overflow-y-auto border border-ink/20">
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
-              <TableRow className="border-b border-ink/30">
-                <TH>Lap</TH>
-                <TH align="right">Time ≈ s</TH>
-                {has.speed && <TH align="right">v max (km/h)</TH>}
-                {has.rpm && <TH align="right">RPM max</TH>}
-                {has.abs && <TH align="right">ABS</TH>}
-                <TH>Flags</TH>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleLaps.map((r, i) => (
-                <TableRow
-                  key={r.lap}
-                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-60" : ""}`}
-                  onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
-                  title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap) — comunque ispezionabile"}
+        {/* ---------- Per-lap table ---------- */}
+        <div className="col-span-12 min-w-0 xl:col-span-8">
+          <PaperPanel eyebrow="Per Lap" title="Lap Table">
+            <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Mostra:
+              </span>
+              {(["all", "valid", "invalid"] as const).map((opt) => (
+                <Button
+                  key={opt}
+                  size="sm"
+                  variant={lapFilter === opt ? "default" : "outline"}
+                  onClick={() => setLapFilter(opt)}
+                  className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
                 >
-                  <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    L{r.lap}
-                  </TableCell>
-                  <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
-                    {fmtLapTimeRough(r.durationS)}
-                  </TableCell>
-                  {has.speed && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
-                  )}
-                  {has.rpm && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
-                  )}
-                  {has.abs && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
-                  )}
-                  <TableCell className="space-x-1">
-                    {r.isFastest && <MiniBadge tone="red">fastest</MiniBadge>}
-                    {!r.isValidLap && <MiniBadge tone="ink">invalid</MiniBadge>}
-                    {r.isOutLap && <MiniBadge tone="ink">out-lap</MiniBadge>}
-                    {r.hasAbs && <MiniBadge tone="ink">abs</MiniBadge>}
-                    {r.hasAlarm && <MiniBadge tone="red">alarm</MiniBadge>}
-                  </TableCell>
-                </TableRow>
+                  {opt === "all" ? "tutti" : opt === "valid" ? "solo validi" : "solo non validi"}
+                </Button>
               ))}
-            </TableBody>
-          </Table>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                {visibleLaps.length}/{laps.length}
+              </span>
+            </div>
+            <div className="max-h-[520px] overflow-y-auto border border-ink/20">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
+                  <TableRow className="border-b border-ink/30">
+                    <TH>Lap</TH>
+                    <TH align="right">Time ≈ s</TH>
+                    {has.speed && <TH align="right">v max (km/h)</TH>}
+                    {has.rpm && <TH align="right">RPM max</TH>}
+                    {has.abs && <TH align="right">ABS</TH>}
+                    <TH>Flags</TH>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleLaps.map((r, i) => (
+                    <TableRow
+                      key={r.lap}
+                      className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-60" : ""}`}
+                      onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
+                      title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap) — comunque ispezionabile"}
+                    >
+                      <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
+                        L{r.lap}
+                      </TableCell>
+                      <TableCell className={`text-right font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
+                        {fmtLapTimeRough(r.durationS)}
+                      </TableCell>
+                      {has.speed && (
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
+                      )}
+                      {has.rpm && (
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
+                      )}
+                      {has.abs && (
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
+                      )}
+                      <TableCell className="space-x-1">
+                        {r.isFastest && <MiniBadge tone="red">fastest</MiniBadge>}
+                        {!r.isValidLap && <MiniBadge tone="ink">invalid</MiniBadge>}
+                        {r.isOutLap && <MiniBadge tone="ink">out-lap</MiniBadge>}
+                        {r.hasAbs && <MiniBadge tone="ink">abs</MiniBadge>}
+                        {r.hasAlarm && <MiniBadge tone="red">alarm</MiniBadge>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </PaperPanel>
         </div>
-      </PaperPanel>
 
-      {/* ---------- Lap selector ---------- */}
-      <PaperPanel eyebrow="Drill-down" title="Lap Detail">
-        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Giro:
-          </span>
-          <Button
-            size="sm"
-            variant={selectedLap === "all" ? "default" : "outline"}
-            onClick={() => setSelectedLap("all")}
-            className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
-          >
-            tutti
-          </Button>
-          {laps.map((r) => (
-            <Button
-              key={r.lap}
-              size="sm"
-              variant={selectedLap === r.lap ? "default" : "outline"}
-              onClick={() => setSelectedLap(r.lap)}
-              title={r.isValidLap ? undefined : "Giro non valido — ispezionabile"}
-              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-60 italic" : ""}`}
-            >
-              L{r.lap}
-            </Button>
-          ))}
-        </div>
+        {/* ---------- Lap selector / drill-down ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Drill-down" title="Lap Detail">
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Giro:
+              </span>
+              <Button
+                size="sm"
+                variant={selectedLap === "all" ? "default" : "outline"}
+                onClick={() => setSelectedLap("all")}
+                className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+              >
+                tutti
+              </Button>
+              {laps.map((r) => (
+                <Button
+                  key={r.lap}
+                  size="sm"
+                  variant={selectedLap === r.lap ? "default" : "outline"}
+                  onClick={() => setSelectedLap(r.lap)}
+                  title={r.isValidLap ? undefined : "Giro non valido — ispezionabile"}
+                  className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-60 italic" : ""}`}
+                >
+                  L{r.lap}
+                </Button>
+              ))}
+            </div>
 
-        {selected === null ? (
-          <>
-            {has.abs && has.lapDistance && (
-              <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
-            )}
-            <p className="mt-4 font-mono text-[11px] text-muted-foreground">
-              Seleziona un giro per il dettaglio.
-            </p>
-          </>
-        ) : (
-          <div className="space-y-5">
-            <h3 className="font-mono text-sm font-bold tracking-widest">
-              L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
-              {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
-            </h3>
-
-            {/* Track map for this lap */}
-            <Section title="Track Map">
-              <TrackMap
-                file={file}
-                refLap={lapRowToLap(selected)}
-                cursorDist={cursorDist}
-                onCursorDistChange={setCursorDist}
-                absMarkers={absMarkers}
-                setupMark={setupMark}
-              />
-              <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
-            </Section>
-
-            {/* Channel traces vs lap distance */}
-            <Section title="Channel Traces (vs Lap Distance)">
-              <LapChannelTraces
-                file={file}
-                lap={selected}
-                refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
-                cursorDist={cursorDist}
-                onCursorDistChange={setCursorDist}
-              />
-            </Section>
-
-
-
-            {/* ABS hits */}
-            {has.abs && (
-              <Section title="ABS Activations">
-                {lapAbs.length === 0 ? (
-                  <p className="font-mono text-xs text-muted-foreground">Nessuna attivazione ABS.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-b border-ink/20">
-                        <TH>#</TH>
-                        <TH align="right">t (mm:ss)</TH>
-                        {has.lapDistance && <TH align="right">Lap Dist (m)</TH>}
-                        <TH align="right">Dur (s)</TH>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lapAbs.map((h, i) => (
-                        <TableRow key={i} className="border-b border-ink/10">
-                          <TableCell className="font-mono text-xs tabular-nums">{i + 1}</TableCell>
-                          <TableCell className="text-right font-mono text-xs tabular-nums">{fmtTime(h.tSec - selected.tStart)}</TableCell>
-                          {has.lapDistance && (
-                            <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(h.lapDistance, 0)}</TableCell>
-                          )}
-                          <TableCell className="text-right font-mono text-xs tabular-nums">{h.durationS.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+            {selected === null ? (
+              <>
+                {has.abs && has.lapDistance && (
+                  <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
                 )}
-              </Section>
+                <p className="mt-4 font-mono text-[11px] text-muted-foreground">
+                  Seleziona un giro per il dettaglio.
+                </p>
+              </>
+            ) : (
+              <div className="space-y-5">
+                <h3 className="font-mono text-sm font-bold tracking-widest">
+                  L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
+                  {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
+                </h3>
+
+                <div className="grid grid-cols-12 gap-5">
+                  {/* Track map */}
+                  <div className="col-span-12 min-w-0 xl:col-span-5">
+                    <Section title="Track Map">
+                      <TrackMap
+                        file={file}
+                        refLap={lapRowToLap(selected)}
+                        cursorDist={cursorDist}
+                        onCursorDistChange={setCursorDist}
+                        absMarkers={absMarkers}
+                        setupMark={setupMark}
+                      />
+                      <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
+                    </Section>
+                  </div>
+
+                  {/* Channel traces */}
+                  <div className="col-span-12 min-w-0 xl:col-span-7">
+                    <Section title="Channel Traces (vs Lap Distance)">
+                      <LapChannelTraces
+                        file={file}
+                        lap={selected}
+                        refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                        cursorDist={cursorDist}
+                        onCursorDistChange={setCursorDist}
+                      />
+                    </Section>
+                  </div>
+
+                  {/* ABS hits */}
+                  {has.abs && (
+                    <div className="col-span-12 min-w-0 xl:col-span-6 2xl:col-span-4">
+                      <Section title="ABS Activations">
+                        {lapAbs.length === 0 ? (
+                          <p className="font-mono text-xs text-muted-foreground">Nessuna attivazione ABS.</p>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="border-b border-ink/20">
+                                <TH>#</TH>
+                                <TH align="right">t (mm:ss)</TH>
+                                {has.lapDistance && <TH align="right">Lap Dist (m)</TH>}
+                                <TH align="right">Dur (s)</TH>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {lapAbs.map((h, i) => (
+                                <TableRow key={i} className="border-b border-ink/10">
+                                  <TableCell className="font-mono text-xs tabular-nums">{i + 1}</TableCell>
+                                  <TableCell className="text-right font-mono text-xs tabular-nums">{fmtTime(h.tSec - selected.tStart)}</TableCell>
+                                  {has.lapDistance && (
+                                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(h.lapDistance, 0)}</TableCell>
+                                  )}
+                                  <TableCell className="text-right font-mono text-xs tabular-nums">{h.durationS.toFixed(2)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </Section>
+                    </div>
+                  )}
+
+                  {/* Brakes */}
+                  {has.brakes && (
+                    <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
+                      <Section title="Brake Disc Temps">
+                        <CornerGrid corner={selected.brakes} unit="°C" />
+                      </Section>
+                    </div>
+                  )}
+
+                  {/* Tyres */}
+                  {has.tyres && (
+                    <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
+                      <Section title="Tyre Temps (TPMS)">
+                        <CornerGrid corner={selected.tyres} unit="°C" />
+                      </Section>
+                    </div>
+                  )}
+
+                  {/* Setup changes in lap */}
+                  <div className="col-span-12 min-w-0">
+                    <Section title="Setup Changes in Lap">
+                      {lapChanges.length === 0 ? (
+                        <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
+                      ) : (
+                        <ul className="space-y-1 font-mono text-xs">
+                          {lapChanges.map((c) => {
+                            const active = setupMark?.label === c.channelLabel;
+                            return (
+                              <li key={c.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => focusSetupChange(c)}
+                                  className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
+                                  title="Localizza sulla mappa"
+                                >
+                                  <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                                  <span className="font-bold">{c.channelLabel}</span>
+                                  <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
+                                  <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </Section>
+                  </div>
+                </div>
+              </div>
             )}
+          </PaperPanel>
+        </div>
 
-            {/* Brakes */}
-            {has.brakes && (
-              <Section title="Brake Disc Temps">
-                <CornerGrid corner={selected.brakes} unit="°C" />
-              </Section>
-            )}
-
-            {/* Tyres */}
-            {has.tyres && (
-              <Section title="Tyre Temps (TPMS)">
-                <CornerGrid corner={selected.tyres} unit="°C" />
-              </Section>
-            )}
-
-            {/* Setup changes in lap */}
-            <Section title="Setup Changes in Lap">
-              {lapChanges.length === 0 ? (
-                <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
-              ) : (
-                <ul className="space-y-1 font-mono text-xs">
-                  {lapChanges.map((c) => {
-                    const active = setupMark?.label === c.channelLabel;
-                    return (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => focusSetupChange(c)}
-                          className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
-                          title="Localizza sulla mappa"
-                        >
-                          <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
-                          <span className="font-bold">{c.channelLabel}</span>
-                          <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
-                          <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Section>
-
+        {/* ---------- ABS distribution (always-on, when no lap is selected) ---------- */}
+        {has.abs && has.lapDistance && selected === null && (
+          <div className="col-span-12 min-w-0 xl:col-span-6">
+            <PaperPanel eyebrow="Track Map" title="ABS by Lap Distance">
+              <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
+            </PaperPanel>
           </div>
         )}
-      </PaperPanel>
 
-      {/* ---------- ABS distribution (always-on) ---------- */}
-      {has.abs && has.lapDistance && selected === null && (
-        <PaperPanel eyebrow="Track Map" title="ABS by Lap Distance">
-          <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
-        </PaperPanel>
-      )}
+        {/* ---------- Full setup-change timeline ---------- */}
+        {(has.brkbias || has.mappos || has.tc) && (
+          <div className={`col-span-12 min-w-0 ${has.abs && has.lapDistance && selected === null ? "xl:col-span-6" : ""}`}>
+            <PaperPanel eyebrow="Stint" title="Setup Change Timeline">
+              {setupChanges.length === 0 ? (
+                <p className="font-mono text-xs text-muted-foreground">
+                  Nessun cambio assetto rilevato nello stint.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-ink/30">
+                      <TH>Lap</TH>
+                      <TH>t</TH>
+                      <TH>Channel</TH>
+                      <TH align="right">Prev</TH>
+                      <TH align="right">New</TH>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {setupChanges.map((c, i) => (
+                      <TableRow
+                        key={c.id}
+                        className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} hover:bg-race-red/5`}
+                        onClick={() => focusSetupChange(c)}
+                        title="Localizza sulla mappa"
+                      >
+                        <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.prev, 2)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
+                      </TableRow>
+                    ))}
 
-      {/* ---------- Full setup-change timeline ---------- */}
-      {(has.brkbias || has.mappos || has.tc) && (
-        <PaperPanel eyebrow="Stint" title="Setup Change Timeline">
-          {setupChanges.length === 0 ? (
-            <p className="font-mono text-xs text-muted-foreground">
-              Nessun cambio assetto rilevato nello stint.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-ink/30">
-                  <TH>Lap</TH>
-                  <TH>t</TH>
-                  <TH>Channel</TH>
-                  <TH align="right">Prev</TH>
-                  <TH align="right">New</TH>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {setupChanges.map((c, i) => (
-                  <TableRow
-                    key={c.id}
-                    className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} hover:bg-race-red/5`}
-                    onClick={() => focusSetupChange(c)}
-                    title="Localizza sulla mappa"
-                  >
-                    <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
-                    <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.prev, 2)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
-                  </TableRow>
-                ))}
-
-              </TableBody>
-            </Table>
-          )}
-        </PaperPanel>
-      )}
+                  </TableBody>
+                </Table>
+              )}
+            </PaperPanel>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
