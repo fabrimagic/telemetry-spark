@@ -1,6 +1,6 @@
 import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
 
 export type WheelKey = "fl" | "fr" | "rl" | "rr";
 
