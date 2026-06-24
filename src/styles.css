@@ -66,54 +66,59 @@
 :root {
   --radius: 0.25rem;
 
-  /* Race palette in oklch */
-  --bone: oklch(0.962 0.012 85);            /* #f3efe7 */
-  --ink: oklch(0.207 0 0);                  /* #1a1a1a */
-  --race-red: oklch(0.572 0.231 27);        /* #d40000 */
-  --hazard: oklch(0.875 0.18 92);           /* #ffce00 */
-  --carbon: oklch(0.155 0.005 80);          /* #0e0e10 */
-  --pit-grey: oklch(0.55 0 0);
+  /* Race palette in oklch — DARK-FIRST.
+     --ink is the primary text colour (light on dark) and --bone is the
+     panel/background anchor. The original light-mode swap lives under
+     .light below for completeness, but the app defaults to dark. */
+  --bone: oklch(0.962 0.012 85);            /* #f3efe7 — light accent / inverted text */
+  --ink: oklch(0.95 0.008 85);              /* primary text on dark — high contrast */
+  --race-red: oklch(0.62 0.21 27);          /* slightly brightened for dark bg */
+  --hazard: oklch(0.88 0.18 92);            /* #ffce00 — readable as-is */
+  --carbon: oklch(0.13 0.005 80);           /* base background */
+  --pit-grey: oklch(0.62 0.005 80);
 
-  --background: var(--bone);
+  --background: var(--carbon);
   --foreground: var(--ink);
-  --card: oklch(0.99 0.005 85);
+  --card: oklch(0.175 0.005 80);
   --card-foreground: var(--ink);
-  --popover: oklch(0.99 0.005 85);
+  --popover: oklch(0.19 0.005 80);
   --popover-foreground: var(--ink);
   --primary: var(--race-red);
-  --primary-foreground: var(--bone);
-  --secondary: oklch(0.92 0.01 85);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.24 0.005 80);
   --secondary-foreground: var(--ink);
-  --muted: oklch(0.93 0.008 85);
-  --muted-foreground: oklch(0.45 0.01 80);
+  --muted: oklch(0.22 0.005 80);
+  --muted-foreground: oklch(0.72 0.01 80);  /* WCAG AA on --card */
   --accent: var(--hazard);
-  --accent-foreground: var(--ink);
+  --accent-foreground: var(--carbon);
   --destructive: var(--race-red);
-  --destructive-foreground: var(--bone);
-  --border: oklch(0.85 0.008 85);
-  --input: oklch(0.85 0.008 85);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
   --ring: var(--race-red);
 }
 
 .dark {
+  /* Alias: same tokens as :root so any leftover dark-scoped utilities keep
+     working. Dark IS the default. */
   --background: var(--carbon);
-  --foreground: var(--bone);
-  --card: oklch(0.21 0.005 80);
-  --card-foreground: var(--bone);
-  --popover: oklch(0.21 0.005 80);
-  --popover-foreground: var(--bone);
+  --foreground: var(--ink);
+  --card: oklch(0.175 0.005 80);
+  --card-foreground: var(--ink);
+  --popover: oklch(0.19 0.005 80);
+  --popover-foreground: var(--ink);
   --primary: var(--race-red);
-  --primary-foreground: var(--bone);
-  --secondary: oklch(0.27 0.005 80);
-  --secondary-foreground: var(--bone);
-  --muted: oklch(0.25 0.005 80);
-  --muted-foreground: oklch(0.7 0.01 80);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.24 0.005 80);
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.22 0.005 80);
+  --muted-foreground: oklch(0.72 0.01 80);
   --accent: var(--hazard);
   --accent-foreground: var(--carbon);
   --destructive: var(--race-red);
-  --destructive-foreground: var(--bone);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
   --ring: var(--race-red);
 }
 
