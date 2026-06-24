@@ -745,6 +745,10 @@ export function DrivingConsistencyPanel({
   const radarSpec =
     availableRadarMetrics.find((m) => m.key === radarMetricKey) ?? availableRadarMetrics[0];
 
+  const [spatialMetricKey, setSpatialMetricKey] = useState<SpatialMetricKey>("brakePointDist");
+  const spatialSpec =
+    SPATIAL_METRICS.find((m) => m.key === spatialMetricKey) ?? SPATIAL_METRICS[0];
+
   return (
     <div className="space-y-6">
       {/* Summary line */}
