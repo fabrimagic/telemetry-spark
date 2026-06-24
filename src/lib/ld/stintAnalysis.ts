@@ -78,6 +78,29 @@ export interface SetupChange {
   next: number;
 }
 
+export interface LapCoherence {
+  /** Total segments returned by laps.ts (after Lap-Number segmentation). */
+  totalSegments: number;
+  /** Of those, how many pass the valid-lap criterion (duration + movement). */
+  validLaps: number;
+  /** Session-progressive index of the fastest valid lap (1..N), if any. */
+  fastestLapSession?: number;
+  /** Reference fastest lap from the .ldx oracle (if available). */
+  oracleFastestLap?: number;
+  /** Reference fastest lap time in seconds (mm:ss.mmm precision) from .ldx. */
+  oracleFastestSec?: number;
+  /** Reference total laps from the .ldx oracle. */
+  oracleTotalLaps?: number;
+  /**
+   * True when the Lap-Number-based segmentation reproduces the .ldx oracle:
+   * total valid laps within tolerance of oracleTotalLaps AND the fastest
+   * valid lap (session index) matches oracleFastestLap.
+   */
+  alignedWithOracle: boolean;
+}
+
+
+
 export interface StintAnalysis {
   conditions: SessionConditions;
   laps: LapRow[];
