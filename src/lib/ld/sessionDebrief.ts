@@ -1,5 +1,6 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 export type DebriefSeverity = "alarm" | "diag" | "threshold" | "physical";
 
