@@ -75,6 +75,7 @@ function Index() {
         toolsets={loader.toolsets.length}
         onReset={loader.reset}
         hasAnything={hasAnything}
+        onExportPdf={() => exportSummaryPdf(loader.files, loader.toolsets)}
       />
 
       <div className="flex flex-1">
