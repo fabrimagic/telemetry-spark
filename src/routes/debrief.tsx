@@ -565,15 +565,14 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
-        {/* ---------- Thermal Balance (stint aggregate, setup-oriented read) ---------- */}
-        <div className="col-span-12 min-w-0">
+        {/* ---------- Thermal Balance + Engine Usage — share a row on wide screens ---------- */}
+        <div className="col-span-12 min-w-0 2xl:col-span-6">
           <PaperPanel eyebrow="Setup" title="Thermal Balance">
             <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
           </PaperPanel>
         </div>
 
-        {/* ---------- Engine Usage (stint aggregate, RPM-based) ---------- */}
-        <div className="col-span-12 min-w-0">
+        <div className="col-span-12 min-w-0 2xl:col-span-6">
           <PaperPanel eyebrow="Engine" title="Engine Usage">
             <EngineUsagePanel file={file} laps={laps} />
           </PaperPanel>
