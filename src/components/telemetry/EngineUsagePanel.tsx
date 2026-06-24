@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Gauge } from "@/components/telemetry/Gauge";
 
 function fmt(n: number | undefined, d = 0): string {
   if (n === undefined || !Number.isFinite(n)) return "—";
