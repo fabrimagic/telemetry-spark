@@ -18,7 +18,6 @@ export const Route = createFileRoute("/docs")({
     ],
   }),
   component: DocsPage,
-  ssr: false,
 });
 
 interface TocItem {
