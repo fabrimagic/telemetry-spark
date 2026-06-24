@@ -7,7 +7,25 @@
 // only sample statistics (mean, std, CV) and per-half deltas. The engineer
 // reads the data and decides; the engine does not diagnose.
 
-import { useMemo } from "react";
+// Radar (Part 2) — overlays first-half vs second-half of the stint, one
+// metric at a time, with one axis per corner. Each axis is normalised
+// independently on its own range (combining the two halves of that zone) so
+// the chart is readable even when corners have very different physical
+// scales. Consequence (declared in the panel): the radar shows the RELATIVE
+// shape of the first-vs-second comparison, NOT absolute values; the area
+// and the distance from the centre are NOT physical quantities. Exact
+// values remain available in the tooltip and in the table below.
+
+import { useMemo, useState } from "react";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import type { LdFile } from "@/lib/ld/types";
 import type { LapRow, AbsHit } from "@/lib/ld/stintAnalysis";
 import {
@@ -24,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 function fmt(n: number | undefined | null, d = 1): string {
   if (n === undefined || n === null || !Number.isFinite(n)) return "—";
