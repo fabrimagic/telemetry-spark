@@ -682,6 +682,28 @@ export function WeatherEvolutionPanel({ file, laps }: { file: LdFile; laps: LapR
         </div>
       </div>
 
+      {/* Gauge — % bagnato medio sullo stint (canale wet di bordo) */}
+      {hasWet && summary.wetMeanPct !== undefined && Number.isFinite(summary.wetMeanPct) && (
+        <div className="flex flex-col items-center gap-2 border border-ink/15 bg-card p-3 md:flex-row md:items-center md:gap-6">
+          <Gauge value={summary.wetMeanPct} label="Bagnato medio %" unit="%" digits={1} />
+          <div className="max-w-md space-y-1">
+            <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
+              Percentuale media dei campioni classificati come bagnati dal
+              canale <span className="font-bold">wet</span> a bordo: 0% =
+              asciutto per tutto lo stint, 100% = bagnato per tutto lo stint.
+              Senza implicazioni di "buono" o "cattivo".
+            </p>
+            {summary.wetTransition && (
+              <p className="font-mono text-[10px] text-race-red">
+                Transizione asciutto→bagnato osservata a L{summary.wetTransition.lap}{" "}
+                ({fmt(summary.wetTransition.wetPct, 0)}% campioni nel giro).
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+
       {summary.overallStable && (
         <p className="font-mono text-[11px] text-muted-foreground">
           Condizioni sostanzialmente stabili nello stint (delta entro la
