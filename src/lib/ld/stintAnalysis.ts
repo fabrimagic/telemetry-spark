@@ -472,6 +472,7 @@ export function buildStintAnalysis(
     laps: lapRows,
     absHits,
     setupChanges,
+    refLapLength,
     has: {
       speed: !!speed,
       rpm: !!rpm,
