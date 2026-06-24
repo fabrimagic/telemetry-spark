@@ -10,6 +10,7 @@ import {
   type AbsHit,
 } from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -709,9 +710,19 @@ function AbsDistributionBars({
 
 /* ============ Lap Channel Traces (drill-down chart) ============ */
 
-function findChannel(file: LdFile, aliases: string[]): Channel | undefined {
+/** Local convenience: resolve by an optional logical key, with a substring
+ *  fallback list of alias strings for the rare case where the resolver
+ *  catalogue doesn't yet cover the channel of interest. */
+function findChannel(
+  file: LdFile,
+  logical: LogicalKey | null,
+  aliases: string[] = [],
+): Channel | undefined {
+  if (logical) {
+    const hit = resolveChannel(file.channels, logical);
+    if (hit) return hit;
+  }
   const wanted = aliases.map(norm);
-  // exact first, then substring
   for (const want of wanted) {
     const exact = file.channels.find((c) => norm(c.name) === want && !c.empty);
     if (exact) return exact;
@@ -782,7 +793,7 @@ interface TraceSpec {
   key: string;
   label: string;
   unit: string;
-  aliases: string[];
+  logical: LogicalKey;
   color: string;
   /** Show reference-lap overlay (only for speed). */
   withRef?: boolean;
@@ -790,12 +801,12 @@ interface TraceSpec {
 }
 
 const TRACE_SPECS: TraceSpec[] = [
-  { key: "speed", label: "Ground Speed", unit: "km/h", aliases: ["ground speed", "speed"], color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
-  { key: "rpm", label: "RPM", unit: "rpm", aliases: ["rpm", "engine rpm"], color: "#c97a00", decimals: 0 },
-  { key: "aps", label: "Throttle", unit: "%", aliases: ["ecu aps", "ath", "aps", "throttle"], color: "#2a7a2a", decimals: 1 },
-  { key: "pbf", label: "Brake Press F", unit: "bar", aliases: ["log pbrake f", "pbrake f", "brake pressure front"], color: "#1f4a8a", decimals: 1 },
-  { key: "pbr", label: "Brake Press R", unit: "bar", aliases: ["log pbrake r", "pbrake r", "brake pressure rear"], color: "#3d6cc4", decimals: 1 },
-  { key: "steer", label: "Steering", unit: "°", aliases: ["log asteer", "asteer", "steering angle", "steer"], color: "#7a3d8a", decimals: 1 },
+  { key: "speed", label: "Ground Speed", unit: "km/h", logical: "speed",           color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
+  { key: "rpm",   label: "RPM",          unit: "rpm",  logical: "rpm",             color: "#c97a00", decimals: 0 },
+  { key: "aps",   label: "Throttle",     unit: "%",    logical: "throttle",        color: "#2a7a2a", decimals: 1 },
+  { key: "pbf",   label: "Brake Press F", unit: "bar", logical: "brakePressFront", color: "#1f4a8a", decimals: 1 },
+  { key: "pbr",   label: "Brake Press R", unit: "bar", logical: "brakePressRear",  color: "#3d6cc4", decimals: 1 },
+  { key: "steer", label: "Steering",     unit: "°",    logical: "steeringAngle",   color: "#7a3d8a", decimals: 1 },
 ];
 
 function LapChannelTraces({
@@ -812,7 +823,7 @@ function LapChannelTraces({
   onCursorDistChange?: (d: number | null) => void;
 }) {
 
-  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  const lapCh = findChannel(file, "lapDistance");
   if (!lapCh) {
     return (
       <p className="font-mono text-xs text-muted-foreground">
@@ -822,7 +833,7 @@ function LapChannelTraces({
   }
 
   const traces = TRACE_SPECS.map((spec) => {
-    const ch = findChannel(file, spec.aliases);
+    const ch = findChannel(file, spec.logical);
     if (!ch) return { spec, data: null as null | { x: number; y: number }[], ref: null as null | { x: number; y: number }[] };
     const raw = buildLapSeries(ch, lapCh, lap.tStart, lap.tEnd);
     if (raw.length === 0) return { spec, data: null, ref: null };
@@ -1013,7 +1024,7 @@ interface DistTimeIndex {
 
 /** Build a monotonic distance↔time index from the Lap Distance channel over a lap window. */
 function buildDistTimeIndex(file: LdFile, lap: LapRow): DistTimeIndex | null {
-  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  const lapCh = findChannel(file, "lapDistance");
   if (!lapCh) return null;
   const freq = lapCh.freq || 1;
   const i0 = Math.max(0, Math.floor(lap.tStart * freq));
@@ -1072,13 +1083,13 @@ function sampleChan(ch: Channel | undefined, t: number): number | undefined {
 }
 
 function sampleAtTime(file: LdFile, t: number): CursorSample {
-  const grab = (aliases: string[]) => sampleChan(findChannel(file, aliases), t);
-  const speed = grab(["ground speed", "speed"]);
-  const rpm = grab(["rpm", "engine rpm"]);
-  const aps = grab(["ecu aps", "ath", "aps", "throttle"]);
-  const pbf = grab(["log pbrake f", "pbrake f", "brake pressure front"]);
-  const pbr = grab(["log pbrake r", "pbrake r", "brake pressure rear"]);
-  const steer = grab(["log asteer", "asteer", "steering angle", "steer"]);
+  const grab = (k: LogicalKey) => sampleChan(findChannel(file, k), t);
+  const speed = grab("speed");
+  const rpm = grab("rpm");
+  const aps = grab("throttle");
+  const pbf = grab("brakePressFront");
+  const pbr = grab("brakePressRear");
+  const steer = grab("steeringAngle");
 
   const channels: CursorSample["channels"] = [];
   const push = (label: string, unit: string, v: number | undefined, decimals = 1) => {
@@ -1091,16 +1102,16 @@ function sampleAtTime(file: LdFile, t: number): CursorSample {
   push("Brake R", "bar", pbr, 1);
   push("Steer", "°", steer, 1);
 
-  const corner = (base: string) => ({
-    fl: sampleChan(findChannel(file, [`${base} fl`]), t),
-    fr: sampleChan(findChannel(file, [`${base} fr`]), t),
-    rl: sampleChan(findChannel(file, [`${base} rl`]), t),
-    rr: sampleChan(findChannel(file, [`${base} rr`]), t),
+  const corner = (base: "brakeDiscTemp" | "tyreTemp") => ({
+    fl: sampleChan(findChannel(file, `${base}.fl` as LogicalKey), t),
+    fr: sampleChan(findChannel(file, `${base}.fr` as LogicalKey), t),
+    rl: sampleChan(findChannel(file, `${base}.rl` as LogicalKey), t),
+    rr: sampleChan(findChannel(file, `${base}.rr` as LogicalKey), t),
   });
   return {
     channels,
-    brakes: corner("log brkdisctemp"),
-    tyres: corner("tpms temp"),
+    brakes: corner("brakeDiscTemp"),
+    tyres: corner("tyreTemp"),
   };
 }
 

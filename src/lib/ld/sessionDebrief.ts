@@ -1,5 +1,6 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 export type DebriefSeverity = "alarm" | "diag" | "threshold" | "physical";
 
@@ -65,9 +66,6 @@ function extractActiveIntervals(
   return out;
 }
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName);
-}
 
 export function buildSessionDebrief(
   file: LdFile,
@@ -168,7 +166,7 @@ export function buildSessionDebrief(
   }
 
   // 4) Physical binary events — ABS Active transitions to active.
-  const abs = findChannel(file.channels, "abs active");
+  const abs = resolveChannel(file.channels, "absActive");
   if (abs && !abs.empty) {
     let prev = 0;
     for (let i = 0; i < abs.values.length; i++) {

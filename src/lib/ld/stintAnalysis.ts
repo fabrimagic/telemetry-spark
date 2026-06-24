@@ -1,6 +1,7 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import type { ToolsetDisplayMeta } from "@/lib/toolset/types";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, hasAnyCorner, type LogicalKey, type WheelKey } from "@/lib/ld/channelResolver";
 
 
 /* ===================== Types ===================== */
@@ -131,9 +132,6 @@ export interface StintAnalysis {
 
 /* ===================== Helpers ===================== */
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 /** Inclusive sample range that covers the lap window [tStart, tEnd] for a given channel. */
 function lapRange(c: Channel, lap: Lap): { from: number; to: number } {
@@ -168,20 +166,15 @@ function statsOver(c: Channel, lap: Lap): { min: number; max: number; avg: numbe
 
 function tempCornerStats(
   channels: Channel[],
-  baseNorm: string,
+  base: "brakeDiscTemp" | "tyreTemp",
   lap: Lap,
 ): LapTempCorner {
-  const corners: Array<["fl" | "fr" | "rl" | "rr", string]> = [
-    ["fl", `${baseNorm} fl`],
-    ["fr", `${baseNorm} fr`],
-    ["rl", `${baseNorm} rl`],
-    ["rr", `${baseNorm} rr`],
-  ];
+  const wheels: WheelKey[] = ["fl", "fr", "rl", "rr"];
   const out: LapTempCorner = {};
   const avgs: Record<string, number> = {};
   let maxAll = -Infinity;
-  for (const [k, nm] of corners) {
-    const ch = findChannel(channels, nm);
+  for (const k of wheels) {
+    const ch = resolveChannel(channels, `${base}.${k}` as LogicalKey);
     if (!ch) continue;
     const s = statsOver(ch, lap);
     if (s.n === 0) continue;
@@ -235,7 +228,7 @@ export function buildStintAnalysis(
 
   /* ----- 1. Session conditions ----- */
   const conditions: SessionConditions = {};
-  const wet = findChannel(ch, "log b wet");
+  const wet = resolveChannel(ch, "wet");
   if (wet) {
     let on = 0;
     let tot = 0;
@@ -247,18 +240,18 @@ export function buildStintAnalysis(
     }
     if (tot > 0) conditions.wetPct = (on / tot) * 100;
   }
-  const airT = findChannel(ch, "pth t air");
+  const airT = resolveChannel(ch, "airTemp");
   if (airT) conditions.airTempAvg = meanValid(airT.values);
-  const hum = findChannel(ch, "pth r humidity");
+  const hum = resolveChannel(ch, "humidity");
   if (hum) conditions.humidityAvg = meanValid(hum.values);
-  const airP = findChannel(ch, "pth p air");
+  const airP = resolveChannel(ch, "airPressure");
   if (airP) conditions.airPressureAvg = meanValid(airP.values);
 
   /* ----- 2. Per-lap channels ----- */
-  const speed = findChannel(ch, "ground speed");
-  const rpm = findChannel(ch, "rpm");
-  const absCh = findChannel(ch, "abs active");
-  const lapDist = findChannel(ch, "lap distance");
+  const speed = resolveChannel(ch, "speed");
+  const rpm = resolveChannel(ch, "rpm");
+  const absCh = resolveChannel(ch, "absActive");
+  const lapDist = resolveChannel(ch, "lapDistance");
 
   // Native alarm channels (same convention as sessionDebrief — strict matching)
   const COUNTER_TOKENS = ["milisecond", "second", "minute", "hour", "counter", "timer", "distance"];
@@ -392,8 +385,8 @@ export function buildStintAnalysis(
       isOutLap: Number.isFinite(validBandHi) && lap.duration > validBandHi,
       isFastest: false,
       isValidLap: false, // filled in pass 2
-      brakes: tempCornerStats(ch, "log brkdisctemp", lap),
-      tyres: tempCornerStats(ch, "tpms temp", lap),
+      brakes: tempCornerStats(ch, "brakeDiscTemp", lap),
+      tyres: tempCornerStats(ch, "tyreTemp", lap),
       _durationValid: durValid,
     };
   });
@@ -502,13 +495,13 @@ export function buildStintAnalysis(
 
   /* ----- 3. Setup changes ----- */
   const setupChanges: SetupChange[] = [];
-  const setupSpecs: Array<{ key: SetupChannelKey; nm: string; label: string }> = [
-    { key: "brkbias", nm: "log brkbias", label: "Brake Bias" },
-    { key: "mappos", nm: "ecu mappos", label: "Engine Map" },
-    { key: "tc", nm: "stw rt01 tc lat", label: "TC Map" },
+  const setupSpecs: Array<{ key: SetupChannelKey; logical: LogicalKey; label: string }> = [
+    { key: "brkbias", logical: "brakeBias", label: "Brake Bias" },
+    { key: "mappos", logical: "engineMap", label: "Engine Map" },
+    { key: "tc", logical: "tcMap", label: "TC Map" },
   ];
   for (const spec of setupSpecs) {
-    const c = findChannel(ch, spec.nm);
+    const c = resolveChannel(ch, spec.logical);
     if (!c) continue;
     const v = c.values;
     const freq = c.freq || 1;
@@ -580,19 +573,11 @@ export function buildStintAnalysis(
       rpm: !!rpm,
       abs: !!absCh,
       lapDistance: !!lapDist,
-      brakes:
-        !!findChannel(ch, "log brkdisctemp fl") ||
-        !!findChannel(ch, "log brkdisctemp fr") ||
-        !!findChannel(ch, "log brkdisctemp rl") ||
-        !!findChannel(ch, "log brkdisctemp rr"),
-      tyres:
-        !!findChannel(ch, "tpms temp fl") ||
-        !!findChannel(ch, "tpms temp fr") ||
-        !!findChannel(ch, "tpms temp rl") ||
-        !!findChannel(ch, "tpms temp rr"),
-      brkbias: !!findChannel(ch, "log brkbias"),
-      mappos: !!findChannel(ch, "ecu mappos"),
-      tc: !!findChannel(ch, "stw rt01 tc lat"),
+      brakes: hasAnyCorner(ch, "brakeDiscTemp"),
+      tyres: hasAnyCorner(ch, "tyreTemp"),
+      brkbias: !!resolveChannel(ch, "brakeBias"),
+      mappos: !!resolveChannel(ch, "engineMap"),
+      tc: !!resolveChannel(ch, "tcMap"),
     },
   };
 }

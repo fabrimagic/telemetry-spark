@@ -1,5 +1,5 @@
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 /**
  * Lap timing recovered from the 100 Hz "lap time prev" channel, cross-checked
@@ -49,9 +49,6 @@ const MIN_PLAUSIBLE_S = 20;
 const MAX_PLAUSIBLE_S = 900;
 const STABLE_SAMPLES = 5;
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 function isPlausible(v: number): boolean {
   return Number.isFinite(v) && v > MIN_PLAUSIBLE_S && v < MAX_PLAUSIBLE_S;
@@ -211,7 +208,7 @@ function buildPerLap(
 }
 
 export function buildLapTiming(file: LdFile): LapTimingResult {
-  const ch = findChannel(file.channels, "lap time prev");
+  const ch = resolveChannel(file.channels, "lapTimePrev");
   const oracleFastestSec = parseFastestTimeStr(file.meta.fastestTime);
   const oracleTotalLaps = file.meta.totalLaps;
 

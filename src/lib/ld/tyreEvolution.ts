@@ -1,6 +1,6 @@
 import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
 
 export type WheelKey = "fl" | "fr" | "rl" | "rr";
 
@@ -51,9 +51,6 @@ export interface TyreEvolution {
 
 const WHEELS: WheelKey[] = ["fl", "fr", "rl", "rr"];
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 function isValid(v: number): boolean {
   return Number.isFinite(v) && v !== -1;
@@ -95,12 +92,12 @@ interface RawSeries {
 
 function buildRawSeries(
   channels: Channel[],
-  baseNorm: string,
+  baseKey: "tyreTemp" | "tyrePress",
   validLaps: LapRow[],
 ): Record<WheelKey, RawSeries> {
   const out = {} as Record<WheelKey, RawSeries>;
   for (const w of WHEELS) {
-    const ch = findChannel(channels, `${baseNorm} ${w}`);
+    const ch = resolveChannel(channels, `${baseKey}.${w}` as LogicalKey);
     if (!ch) {
       out[w] = { channelFound: false, perLap: validLaps.map(() => undefined), nonZeroFraction: 0 };
       continue;
@@ -298,8 +295,8 @@ export function buildTyreEvolution(file: LdFile, lapRows: LapRow[]): TyreEvoluti
   const ch = file.channels;
   const validLaps = lapRows.filter((l) => l.isValidLap);
 
-  const tempRaw = buildRawSeries(ch, "tpms temp", validLaps);
-  const pressRaw = buildRawSeries(ch, "tpms press", validLaps);
+  const tempRaw = buildRawSeries(ch, "tyreTemp", validLaps);
+  const pressRaw = buildRawSeries(ch, "tyrePress", validLaps);
 
   const hasTpms = WHEELS.some(
     (w) => tempRaw[w].channelFound || pressRaw[w].channelFound,

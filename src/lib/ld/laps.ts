@@ -16,15 +16,11 @@
 // resets (sharp decrease).
 
 import type { Channel, Lap } from "./types";
-
-function findChannel(channels: Channel[], target: string): Channel | undefined {
-  const t = target.toLowerCase();
-  return channels.find((c) => c.name.toLowerCase() === t);
-}
+import { resolveChannel } from "./channelResolver";
 
 export function segmentLaps(channels: Channel[]): Lap[] {
-  const lapNum = findChannel(channels, "Lap Number");
-  const lapDist = findChannel(channels, "Lap Distance");
+  const lapNum = resolveChannel(channels, "lapNumber");
+  const lapDist = resolveChannel(channels, "lapDistance");
 
   if (lapNum && lapNum.nSamples > 1) {
     return segmentFromLapNumber(lapNum);

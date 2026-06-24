@@ -11,7 +11,7 @@
  * location on the circuit.
  */
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
-import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 
 export interface Pt {
   x: number;
@@ -74,20 +74,17 @@ export interface TrackMap {
 
 /* ===================== Helpers ===================== */
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
-
 function pickGpsChannels(channels: Channel[]):
   | { lat: Channel; lon: Channel; source: TrackMap["source"] }
   | null {
   // Prefer the high-resolution (7-decimal) channels; fall back to the
-  // 4-decimal "log gps" channels only when the high-res pair is missing.
-  const latHi = findChannel(channels, "gps latitude");
-  const lonHi = findChannel(channels, "gps longitude");
+  // low-resolution pair only when the high-res pair is missing. Resolution
+  // and aliasing are handled by the central channel resolver.
+  const latHi = resolveChannel(channels, "gpsLatHi");
+  const lonHi = resolveChannel(channels, "gpsLonHi");
   if (latHi && lonHi) return { lat: latHi, lon: lonHi, source: "gps latitude/longitude" };
-  const latLo = findChannel(channels, "log gps lat");
-  const lonLo = findChannel(channels, "log gps lon");
+  const latLo = resolveChannel(channels, "gpsLatLo");
+  const lonLo = resolveChannel(channels, "gpsLonLo");
   if (latLo && lonLo) return { lat: latLo, lon: lonLo, source: "log gps lat/lon" };
   return null;
 }
@@ -144,7 +141,7 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
 
   // 2) Sample lat/lon at a fixed 5 Hz cadence across the lap window. Each
   //    channel is indexed at its own native frequency: i = round(t * freq).
-  const lapDist = findChannel(file.channels, "lap distance");
+  const lapDist = resolveChannel(file.channels, "lapDistance");
   const ldFreq = lapDist?.freq ?? 0;
   const ldLen = lapDist?.values.length ?? 0;
 
