@@ -238,9 +238,8 @@ function DebriefPage() {
               size="sm"
               variant={selectedLap === r.lap ? "default" : "outline"}
               onClick={() => setSelectedLap(r.lap)}
-              disabled={!r.isValidLap}
-              title={r.isValidLap ? undefined : "Giro non valido"}
-              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-40" : ""}`}
+              title={r.isValidLap ? undefined : "Giro non valido — ispezionabile"}
+              className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-60 italic" : ""}`}
             >
               L{r.lap}
             </Button>
