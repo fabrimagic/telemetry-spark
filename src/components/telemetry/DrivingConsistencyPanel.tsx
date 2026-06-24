@@ -773,10 +773,29 @@ export function DrivingConsistencyPanel({
       )}
 
       {/* Part 1 — Spatial dispersion */}
-      <div className="space-y-2">
-        <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Parte 1 · Dispersione spaziale per zona (ordinata dalla meno alla più consistente)
-        </h4>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Parte 1 · Dispersione spaziale per zona (ordinata dalla meno alla più consistente)
+          </h4>
+          <div className="flex items-center gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              metrica:
+            </span>
+            {SPATIAL_METRICS.map((m) => (
+              <Button
+                key={m.key}
+                size="sm"
+                variant={spatialMetricKey === m.key ? "default" : "outline"}
+                className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                onClick={() => setSpatialMetricKey(m.key)}
+              >
+                {m.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <SpatialBoxPlot rows={spatialSorted} spec={spatialSpec} />
         <div className="overflow-x-auto border border-ink/20">
           <Table>
             <TableHeader>
