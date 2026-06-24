@@ -67,7 +67,10 @@ export type LogicalKey =
   | "engineCoolantTemp"
   | "engineOilTemp"
   | "engineOilPressure"
+  | "engineWaterPressure"
+  | "engineRailPressure"
   | "fuelPressure"
+
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
   | "tyreTemp.fl"      | "tyreTemp.fr"      | "tyreTemp.rl"      | "tyreTemp.rr"
