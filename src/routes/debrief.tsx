@@ -22,6 +22,7 @@ import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
+import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 
 import {
   Table,
