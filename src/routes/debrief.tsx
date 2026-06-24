@@ -249,17 +249,17 @@ function DebriefPage() {
 
 
   return (
-    <div className="mx-auto w-full max-w-[1800px] space-y-6 px-6 py-8">
-      <header className="border-b border-ink/30 pb-3 font-mono">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
-        <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
-        <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+    <div className="w-full min-w-0 space-y-3 px-3 py-4 2xl:px-6">
+      <header className="border-b border-border pb-2 font-mono">
+        <div className="text-[9px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
+        <h1 className="font-display text-2xl leading-none tracking-wider">Stint Analysis</h1>
+        <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
         <CoherenceStatus coherence={coherence} />
       </header>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-3">
         {/* ---------- Conditions ribbon ---------- */}
         <div className="col-span-12 min-w-0 xl:col-span-4">
           <PaperPanel eyebrow="Session" title="Conditions">
