@@ -134,7 +134,12 @@ function Index() {
                     { k: "Laps", v: String(f.laps.length) },
                   ]}
                 >
-                  <ChannelTable channels={f.channels} lapCount={f.laps.length} />
+                  <ChannelTable
+                    channels={f.channels}
+                    lapCount={f.laps.length}
+                    toolsetMeta={loader.toolsets[0]?.displayMeta}
+                  />
+
                 </PaperPanel>
               ))}
 
