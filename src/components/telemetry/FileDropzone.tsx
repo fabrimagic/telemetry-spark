@@ -35,7 +35,7 @@ export function FileDropzone({ loading, progress, stage, error, onFiles }: Props
       }`}
     >
       <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-      <h3 className="mt-4 text-lg font-semibold">Carica file MoTeC (.ld + .ldx)</h3>
+      <h3 className="mt-4 text-lg font-semibold">Carica file MoTeC (.ld + .ldx) o configurazione (.toolset)</h3>
       <p className="mt-1 text-sm text-muted-foreground">
         Trascina i file qui o seleziona dal disco. Tutto il parsing avviene nel browser — nessun upload.
       </p>
@@ -50,7 +50,7 @@ export function FileDropzone({ loading, progress, stage, error, onFiles }: Props
         <input
           ref={inputRef}
           type="file"
-          accept=".ld,.ldx"
+          accept=".ld,.ldx,.toolset"
           multiple
           className="hidden"
           onChange={(e) => {
