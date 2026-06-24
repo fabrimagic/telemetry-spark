@@ -75,6 +75,8 @@ export interface StintAnalysis {
   laps: LapRow[];
   absHits: AbsHit[];
   setupChanges: SetupChange[];
+  /** Median nominal lap length (m) computed from valid laps; undefined if not available. */
+  refLapLength?: number;
   /** Whether each per-channel group has data; lets UI omit empty sections. */
   has: {
     speed: boolean;
