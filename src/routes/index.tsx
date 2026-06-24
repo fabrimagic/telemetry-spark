@@ -5,6 +5,7 @@ import { FileDropzone } from "@/components/telemetry/FileDropzone";
 import { ChannelTable } from "@/components/telemetry/ChannelTable";
 import { ToolsetSummary } from "@/components/telemetry/ToolsetSummary";
 import { Badge } from "@/components/ui/badge";
+import { exportSummaryPdf } from "@/lib/export/exportPdf";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -74,6 +75,7 @@ function Index() {
         toolsets={loader.toolsets.length}
         onReset={loader.reset}
         hasAnything={hasAnything}
+        onExportPdf={() => exportSummaryPdf(loader.files, loader.toolsets)}
       />
 
       <div className="flex flex-1">
@@ -160,6 +162,7 @@ function PitWallHeader({
   toolsets,
   onReset,
   hasAnything,
+  onExportPdf,
 }: {
   clock: Date;
   status: "IDLE" | "PARSING" | "ARMED";
@@ -167,6 +170,7 @@ function PitWallHeader({
   toolsets: number;
   onReset: () => void;
   hasAnything: boolean;
+  onExportPdf: () => void;
 }) {
   const statusColor =
     status === "ARMED"
@@ -207,12 +211,21 @@ function PitWallHeader({
               {fmtTime(clock)}
             </span>
             {hasAnything && (
-              <button
-                onClick={onReset}
-                className="ml-2 border border-bone/40 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-bone transition-colors hover:border-race-red hover:bg-race-red"
-              >
-                ⊘ New Session
-              </button>
+              <>
+                <button
+                  onClick={onExportPdf}
+                  className="ml-2 border border-bone/40 bg-hazard px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-ink transition-colors hover:border-hazard hover:bg-bone"
+                  title="Esporta il riepilogo come PDF"
+                >
+                  ⇩ Export PDF
+                </button>
+                <button
+                  onClick={onReset}
+                  className="border border-bone/40 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-bone transition-colors hover:border-race-red hover:bg-race-red"
+                >
+                  ⊘ New Session
+                </button>
+              </>
             )}
           </div>
         </div>
