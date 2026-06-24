@@ -15,7 +15,11 @@ export interface AbsHit {
   lap: number;
   tSec: number;
   lapDistance?: number;
+  /** Lap distance projected onto a single reference lap (0..refLapLength). */
+  lapDistanceNorm?: number;
   durationS: number;
+  /** True iff the lap that contains this hit is a valid lap. */
+  inValidLap: boolean;
 }
 
 export interface LapTempStats {
