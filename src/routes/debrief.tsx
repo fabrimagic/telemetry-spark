@@ -1,8 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
-import { buildStintAnalysis, type LapRow, type LapTempCorner } from "@/lib/ld/stintAnalysis";
-import type { LapTimingResult } from "@/lib/ld/lapTiming";
+import { buildStintAnalysis, type LapRow, type LapTempCorner, type LapCoherence } from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
@@ -50,16 +49,23 @@ function fmtTime(s: number | undefined): string {
   const r = s - m * 60;
   return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
 }
-function fmtLapTime(s: number | undefined, verified = true): string {
+/**
+ * Lap time rendered at ≈ 1 s resolution (Lap-Number segmentation).
+ * The only authoritative precise lap time is the .ldx fastest, shown by the Overview.
+ */
+function fmtLapTimeRough(s: number | undefined): string {
+  if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
+  const m = Math.floor(s / 60);
+  const r = Math.round(s - m * 60);
+  const mm = r === 60 ? m + 1 : m;
+  const ss = r === 60 ? 0 : r;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
+}
+/** Precise mm:ss.mmm — use ONLY for the .ldx oracle reference. */
+function fmtLapTimePrecise(s: number | undefined): string {
   if (s === undefined || !Number.isFinite(s) || s <= 0) return "—";
   const m = Math.floor(s / 60);
   const r = s - m * 60;
-  if (!verified) {
-    const rr = Math.round(r);
-    const mm = rr === 60 ? m + 1 : m;
-    const ss = rr === 60 ? 0 : rr;
-    return `${mm}:${String(ss).padStart(2, "0")}`;
-  }
   return `${m}:${r.toFixed(3).padStart(6, "0")}`;
 }
 
