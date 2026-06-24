@@ -504,7 +504,12 @@ function DebriefPage() {
               </TableHeader>
               <TableBody>
                 {setupChanges.map((c, i) => (
-                  <TableRow key={c.id} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""}`}>
+                  <TableRow
+                    key={c.id}
+                    className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} hover:bg-race-red/5`}
+                    onClick={() => focusSetupChange(c)}
+                    title="Localizza sulla mappa"
+                  >
                     <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
                     <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
                     <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
@@ -512,6 +517,7 @@ function DebriefPage() {
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
                   </TableRow>
                 ))}
+
               </TableBody>
             </Table>
           )}
