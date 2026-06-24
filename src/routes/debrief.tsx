@@ -699,7 +699,7 @@ function LapChannelTraces({
     <div className="space-y-3">
       {refLap && (
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS)}) — linea attenuata
+          Sovrimpressione: L{refLap.lap} (fastest, {fmtLapTime(refLap.durationS, verified)}) — linea attenuata
         </div>
       )}
       {traces.map(({ spec, data, ref }) => {
