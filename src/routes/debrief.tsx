@@ -344,6 +344,13 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
+        {/* ---------- Weather Evolution (stint aggregate, on-board sensors) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Conditions" title="Weather Evolution">
+            <WeatherEvolutionPanel file={file} laps={laps} />
+          </PaperPanel>
+        </div>
+
         {/* ---------- Tyre Evolution (session-level) ---------- */}
         <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Management" title="Tyre Evolution">
