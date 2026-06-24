@@ -164,11 +164,13 @@ export async function parseToolset(
       }
     }
 
-    // CAN bus
+    // CAN bus — sanitize tail bytes (string-extractor can pull UTF-8 continuation
+    // bytes that survive as "@B", "���" etc.). Keep the longest clean candidate
+    // per bus id; final fallback to EXPECTED_CAN_LABELS happens at assembly time.
     const canMatch = s.match(CAN_BUS_RE);
     if (canMatch) {
       const id = parseInt(canMatch[1], 10);
-      const label = (canMatch[2] || "").trim();
+      const label = cleanAscii(canMatch[2] || "");
       const prev = canBusesMap.get(id);
       if (prev === undefined || (label && label.length > prev.length)) {
         canBusesMap.set(id, label);
@@ -187,11 +189,13 @@ export async function parseToolset(
       calibrationHints.add(s.trim());
     }
 
-    // Alarm / diagnostic
-    if (ALARM_RE.test(s) && s.length <= 200) {
+    // Alarm / diagnostic — exclude XAML markup fragments that match by accident
+    // (e.g. "<dash:AlarmDefinition …", "TextBlock", "SourceName=").
+    if (ALARM_RE.test(s) && s.length <= 200 && !ALARM_XAML_MARKER_RE.test(s)) {
       alarms.add(s.trim());
       continue;
     }
+
 
     // Channel name candidate
     if (SNAKE_NAME_RE.test(s) && s.length <= 80) {
@@ -232,19 +236,20 @@ export async function parseToolset(
     ? parseDashChannelBlocks(setupText)
     : { displayMeta: [], totalBlocks: 0 };
 
-  // Build CAN bus list
+  // Build CAN bus list — always 8 buses; substitute the expected domain label
+  // when the raw extracted string is empty, corrupted, or mismatched.
   const channels = Array.from(channelMap.values());
-  const canBuses: ToolsetCanBus[] = Array.from(canBusesMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([id, label]) => ({
-      id,
-      label,
-      channelCount: label
-        ? channels.filter((c) =>
-            (c.description ?? "").toLowerCase().includes(label.toLowerCase()),
-          ).length
-        : 0,
-    }));
+  const expectedIds = Object.keys(EXPECTED_CAN_LABELS).map((n) => parseInt(n, 10));
+  const allIds = new Set<number>([...expectedIds, ...canBusesMap.keys()]);
+  const canBuses: ToolsetCanBus[] = Array.from(allIds)
+    .sort((a, b) => a - b)
+    .map((id) => {
+      const raw = canBusesMap.get(id) ?? "";
+      const expected = EXPECTED_CAN_LABELS[id];
+      const label = raw && (!expected || raw === expected) ? raw : (expected ?? raw);
+      return { id, label };
+    });
+
 
   const notExtracted = buildNotExtractedList(parts, setupPresent);
 
