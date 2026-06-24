@@ -573,19 +573,11 @@ export function buildStintAnalysis(
       rpm: !!rpm,
       abs: !!absCh,
       lapDistance: !!lapDist,
-      brakes:
-        !!findChannel(ch, "log brkdisctemp fl") ||
-        !!findChannel(ch, "log brkdisctemp fr") ||
-        !!findChannel(ch, "log brkdisctemp rl") ||
-        !!findChannel(ch, "log brkdisctemp rr"),
-      tyres:
-        !!findChannel(ch, "tpms temp fl") ||
-        !!findChannel(ch, "tpms temp fr") ||
-        !!findChannel(ch, "tpms temp rl") ||
-        !!findChannel(ch, "tpms temp rr"),
-      brkbias: !!findChannel(ch, "log brkbias"),
-      mappos: !!findChannel(ch, "ecu mappos"),
-      tc: !!findChannel(ch, "stw rt01 tc lat"),
+      brakes: hasAnyCorner(ch, "brakeDiscTemp"),
+      tyres: hasAnyCorner(ch, "tyreTemp"),
+      brkbias: !!resolveChannel(ch, "brakeBias"),
+      mappos: !!resolveChannel(ch, "engineMap"),
+      tc: !!resolveChannel(ch, "tcMap"),
     },
   };
 }
