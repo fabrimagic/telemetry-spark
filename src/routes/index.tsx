@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useLdLoader } from "@/hooks/useLdLoader";
+import { useLdLoaderContext } from "@/context/LdLoaderContext";
 import { FileDropzone } from "@/components/telemetry/FileDropzone";
 import { ChannelTable } from "@/components/telemetry/ChannelTable";
 import { SessionDebrief } from "@/components/telemetry/SessionDebrief";
