@@ -142,8 +142,8 @@ function DebriefPage() {
     );
   }
 
-  const { conditions, laps, absHits, setupChanges, has, refLapLength, timing } = analysis;
-  const verified = timing.timingVerified;
+  const { conditions, laps, absHits, setupChanges, has, refLapLength, coherence } = analysis;
+
 
   const visibleLaps = laps.filter((l) =>
     lapFilter === "all" ? true : lapFilter === "valid" ? l.isValidLap : !l.isValidLap,
