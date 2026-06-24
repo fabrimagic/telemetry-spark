@@ -132,9 +132,6 @@ export interface StintAnalysis {
 
 /* ===================== Helpers ===================== */
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 /** Inclusive sample range that covers the lap window [tStart, tEnd] for a given channel. */
 function lapRange(c: Channel, lap: Lap): { from: number; to: number } {
