@@ -6,19 +6,18 @@
 // signature aggregated by buildBrakingSignature. No invented thresholds —
 // only sample statistics (mean, std, CV) and per-half deltas. The engineer
 // reads the data and decides; the engine does not diagnose.
-
-// Radar (Part 2) — overlays first-half vs second-half of the stint, one
-// metric at a time, with one axis per corner. Since the radar shows ONE
-// metric at a time, all axes carry the same physical quantity (e.g. all
-// vMin in km/h), so they share a SINGLE scale derived from the global
-// min/max of (first.mean, second.mean) across every zone, with a small
-// padding. Consequence: on each axis the distance between the "1ª metà"
-// and "2ª metà" vertices is proportional to the REAL drift of that zone;
-// zones with very different drifts look very different on the radar.
-// Side effect (honest): slow corners and fast corners sit at different
-// radii because their absolute level is different — this is physics, not
-// a defect. The area enclosed by each polygon is NOT a physical quantity.
-// Exact values remain available in the tooltip and in the table below.
+//
+// Part 1 graphic — per-zone BOX PLOT computed from the RAW per-lap values
+// (SignatureRow.perLapValues, propagated through SpatialDispersionRow.
+// perLapValues). Quartiles are REAL quartiles via linear interpolation
+// (same scheme as engineUsage.quantile), NOT approximations from mean/std.
+// Whisker convention: Tukey 1.5×IQR — points outside the fences are drawn
+// as outliers, never invented. Y-axis scale is SHARED across zones for the
+// selected metric so dispersion is visually comparable. When a zone has
+// fewer than ~4 valid samples the box is statistically meaningless and is
+// replaced by a strip of the raw individual points for that zone (declared
+// as "n basso" in the tooltip). If every zone has too few samples, the
+// entire view falls back to strip plots. The numeric tables below remain.
 
 import { useMemo, useState } from "react";
 import {
