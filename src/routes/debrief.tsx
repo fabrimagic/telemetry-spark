@@ -23,6 +23,7 @@ import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePa
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
+import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 
 import {
   Table,
@@ -340,6 +341,13 @@ function DebriefPage() {
                 </TableBody>
               </Table>
             </div>
+          </PaperPanel>
+        </div>
+
+        {/* ---------- Weather Evolution (stint aggregate, on-board sensors) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Conditions" title="Weather Evolution">
+            <WeatherEvolutionPanel file={file} laps={laps} />
           </PaperPanel>
         </div>
 
