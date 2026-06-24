@@ -97,6 +97,7 @@ function DebriefPage() {
   );
 
   const [selectedLap, setSelectedLap] = useState<number | "all">("all");
+  const [lapFilter, setLapFilter] = useState<"all" | "valid" | "invalid">("all");
 
   if (!file || !analysis) {
     return (
