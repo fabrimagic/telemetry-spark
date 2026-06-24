@@ -150,6 +150,25 @@ function DebriefPage() {
 
       {/* ---------- Per-lap table ---------- */}
       <PaperPanel eyebrow="Per Lap" title="Lap Table">
+        <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Mostra:
+          </span>
+          {(["all", "valid", "invalid"] as const).map((opt) => (
+            <Button
+              key={opt}
+              size="sm"
+              variant={lapFilter === opt ? "default" : "outline"}
+              onClick={() => setLapFilter(opt)}
+              className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+            >
+              {opt === "all" ? "tutti" : opt === "valid" ? "solo validi" : "solo non validi"}
+            </Button>
+          ))}
+          <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            {visibleLaps.length}/{laps.length}
+          </span>
+        </div>
         <ScrollArea className="max-h-[520px]">
           <Table>
             <TableHeader className="sticky top-0 bg-card">
@@ -163,15 +182,12 @@ function DebriefPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {laps.map((r, i) => (
+              {visibleLaps.map((r, i) => (
                 <TableRow
                   key={r.lap}
-                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-50" : ""}`}
-                  onClick={() => {
-                    if (!r.isValidLap) return;
-                    setSelectedLap(selectedLap === r.lap ? "all" : r.lap);
-                  }}
-                  title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap)"}
+                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-60" : ""}`}
+                  onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
+                  title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap) — comunque ispezionabile"}
                 >
                   <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
                     L{r.lap}
@@ -180,10 +196,10 @@ function DebriefPage() {
                     {fmtLapTime(r.durationS)}
                   </TableCell>
                   {has.speed && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxSpeed, 1) : "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
                   )}
                   {has.rpm && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxRpm, 0) : "—"}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
                   )}
                   {has.abs && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
