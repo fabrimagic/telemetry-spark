@@ -313,7 +313,7 @@ function DebriefPage() {
       {/* ---------- ABS distribution (always-on) ---------- */}
       {has.abs && has.lapDistance && selected === null && (
         <PaperPanel eyebrow="Track Map" title="ABS by Lap Distance">
-          <AbsDistributionBars hits={absHits} />
+          <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
         </PaperPanel>
       )}
 
