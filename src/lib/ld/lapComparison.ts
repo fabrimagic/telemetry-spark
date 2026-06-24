@@ -94,7 +94,7 @@ export interface LapComparisonResult {
 /* ============================ Constants ============================ */
 
 const GRID_POINTS = 500;
-const BRAKE_PEAK_FRACTION = 0.18; // braking threshold = 18% of the lap's own peak
+export const BRAKE_PEAK_FRACTION = 0.18; // braking threshold = 18% of the lap's own peak
 const THROTTLE_REOPEN_FRACTION = 0.5;
 const MIN_ZONE_LENGTH_M = 25;
 const PARTIAL_COVERAGE_THRESHOLD = 0.7;
@@ -677,8 +677,6 @@ export function resampleLapOnGrid(
   return resampleLap(file, lap, grid, lapCh, ch);
 }
 
-/** The fractional brake threshold used by detectBrakingZones and exposed for
- *  downstream features that must apply the SAME definition (e.g. braking
- *  signature). */
-export const BRAKE_THRESHOLD_FRACTION = 0.18;
+
+
 
