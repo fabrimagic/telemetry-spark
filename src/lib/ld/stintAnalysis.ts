@@ -264,6 +264,7 @@ export function buildStintAnalysis(
             tSec,
             lapDistance: ld,
             durationS: len / freq,
+            inValidLap: false, // filled below once validity is known
           });
         }
       } else {
@@ -272,9 +273,57 @@ export function buildStintAnalysis(
     }
   }
 
+  // ----- Lap validity band (data-driven, from median of this session) -----
+  const VALID_LO = 0.7;
+  const VALID_HI = 1.4;
+  const allDurations = laps
+    .map((l) => l.duration)
+    .filter((d) => Number.isFinite(d) && d > 0)
+    .sort((a, b) => a - b);
+  const medianDuration =
+    allDurations.length > 0 ? allDurations[Math.floor(allDurations.length / 2)] : NaN;
+  const validBandLo = Number.isFinite(medianDuration) ? medianDuration * VALID_LO : NaN;
+  const validBandHi = Number.isFinite(medianDuration) ? medianDuration * VALID_HI : NaN;
+  const isValidDuration = (d: number) =>
+    Number.isFinite(d) &&
+    d > 0 &&
+    Number.isFinite(validBandLo) &&
+    d >= validBandLo &&
+    d <= validBandHi;
+
+  // ----- Session-wide robust upper bound for RPM (drops sentinel/full-scale spikes) -----
+  let rpmUpperCap: number | undefined;
+  if (rpm) {
+    const valid: number[] = [];
+    for (let i = 0; i < rpm.values.length; i++) {
+      const v = rpm.values[i];
+      if (isValid(v)) valid.push(v);
+    }
+    if (valid.length >= 50) {
+      valid.sort((a, b) => a - b);
+      const p99 = valid[Math.floor(valid.length * 0.99)];
+      if (Number.isFinite(p99) && p99 > 0) rpmUpperCap = p99 * 1.05;
+    }
+  }
+
+  function maxOver(c: Channel, lap: Lap, cap?: number): number | undefined {
+    const { from, to } = lapRange(c, lap);
+    let mx = -Infinity;
+    let n = 0;
+    for (let i = from; i <= to; i++) {
+      const v = c.values[i];
+      if (!isValid(v)) continue;
+      if (cap !== undefined && v > cap) continue;
+      if (v > mx) mx = v;
+      n++;
+    }
+    return n > 0 && Number.isFinite(mx) ? mx : undefined;
+  }
+
   const lapRows: LapRow[] = laps.map((lap) => {
-    const sMax = speed ? statsOver(speed, lap).max : NaN;
-    const rMax = rpm ? statsOver(rpm, lap).max : NaN;
+    const validLap = isValidDuration(lap.duration);
+    const sMax = validLap && speed ? maxOver(speed, lap) : undefined;
+    const rMax = validLap && rpm ? maxOver(rpm, lap, rpmUpperCap) : undefined;
     const absInLap = absHits.filter((h) => h.lap === lap.index);
     let hasAlarm = false;
     for (const ac of alarmChannels) {
@@ -293,39 +342,62 @@ export function buildStintAnalysis(
       tStart: lap.tStart,
       tEnd: lap.tEnd,
       durationS: lap.duration,
-      maxSpeed: Number.isFinite(sMax) ? sMax : undefined,
-      maxRpm: Number.isFinite(rMax) ? rMax : undefined,
+      maxSpeed: sMax,
+      maxRpm: rMax,
       absCount: absInLap.length,
       hasAbs: absInLap.length > 0,
       hasAlarm,
-      isOutLap: false, // filled below
+      isOutLap: Number.isFinite(validBandHi) && lap.duration > validBandHi,
       isFastest: false, // filled below
+      isValidLap: validLap,
       brakes: tempCornerStats(ch, "log brkdisctemp", lap),
       tyres: tempCornerStats(ch, "tpms temp", lap),
     };
   });
 
-  // Out-lap detection: duration > 1.5 × median of all lap durations.
-  const durations = lapRows.map((r) => r.durationS).filter((d) => Number.isFinite(d) && d > 0);
-  if (durations.length >= 3) {
-    const sorted = [...durations].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    for (const r of lapRows) {
-      if (r.durationS > median * 1.5) r.isOutLap = true;
-    }
-  }
-
-  // Fastest among non-out-laps.
+  // Fastest is taken only among valid laps.
   let bestIdx = -1;
   let bestT = Infinity;
   lapRows.forEach((r, idx) => {
-    if (r.isOutLap) return;
+    if (!r.isValidLap) return;
     if (r.durationS > 0 && r.durationS < bestT) {
       bestT = r.durationS;
       bestIdx = idx;
     }
   });
   if (bestIdx >= 0) lapRows[bestIdx].isFastest = true;
+
+  // ----- Reference lap length (median of max Lap Distance across valid laps) -----
+  let refLapLength: number | undefined;
+  if (lapDist) {
+    const perLapMax: number[] = [];
+    for (const lap of laps) {
+      if (!isValidDuration(lap.duration)) continue;
+      const { from, to } = lapRange(lapDist, lap);
+      let mx = -Infinity;
+      for (let i = from; i <= to; i++) {
+        const v = lapDist.values[i];
+        if (!isValid(v)) continue;
+        if (v > mx) mx = v;
+      }
+      if (Number.isFinite(mx) && mx > 0) perLapMax.push(mx);
+    }
+    if (perLapMax.length > 0) {
+      perLapMax.sort((a, b) => a - b);
+      refLapLength = perLapMax[Math.floor(perLapMax.length / 2)];
+    }
+  }
+
+  // Tag ABS hits with lap validity and normalised lap distance.
+  const validLapSet = new Set(lapRows.filter((r) => r.isValidLap).map((r) => r.lap));
+  for (const h of absHits) {
+    h.inValidLap = validLapSet.has(h.lap);
+    if (refLapLength && refLapLength > 0 && h.lapDistance !== undefined && Number.isFinite(h.lapDistance)) {
+      const mod = ((h.lapDistance % refLapLength) + refLapLength) % refLapLength;
+      h.lapDistanceNorm = mod;
+    }
+  }
+
 
   /* ----- 3. Setup changes ----- */
   const setupChanges: SetupChange[] = [];
