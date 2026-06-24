@@ -14,6 +14,7 @@ import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
+import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
 import {
   Table,
   TableBody,
