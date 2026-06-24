@@ -22,6 +22,7 @@ import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
+import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 
 import {
   Table,
@@ -563,6 +564,14 @@ function DebriefPage() {
             <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
           </PaperPanel>
         </div>
+
+        {/* ---------- Engine Usage (stint aggregate, RPM-based) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Engine" title="Engine Usage">
+            <EngineUsagePanel file={file} laps={laps} />
+          </PaperPanel>
+        </div>
+
 
 
 
