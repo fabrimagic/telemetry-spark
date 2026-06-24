@@ -202,8 +202,8 @@
 
 @utility paper-card {
   background-color: var(--color-card);
-  border: 1px solid var(--color-ink);
-  box-shadow: 4px 4px 0 0 var(--color-ink);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 0 0 color-mix(in oklab, var(--color-ink) 8%, transparent), 0 8px 24px -16px rgb(0 0 0 / 0.6);
 }
 
 @utility pit-pill {
