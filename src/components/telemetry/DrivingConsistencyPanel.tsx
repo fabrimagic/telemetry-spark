@@ -313,8 +313,8 @@ function DriftBarsFallback({
     <div className="space-y-2 border border-ink/15 p-3">
       <p className="font-mono text-[10px] text-muted-foreground">
         Meno di 3 zone disponibili: il radar è degenere, fallback a barre
-        affiancate (1ª vs 2ª metà) per zona, con normalizzazione per-asse
-        (range locale + padding).
+        affiancate (1ª vs 2ª metà) per zona, con scala condivisa tra le zone
+        sulla metrica selezionata (min/max globale + padding 10%).
       </p>
       <div className="space-y-2">
         {data.map((d) => {
