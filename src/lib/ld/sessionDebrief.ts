@@ -109,21 +109,25 @@ export function buildSessionDebrief(
     });
   };
 
-  // 1) Native alarm/warn/lamp/mil channels — boolean state, ignore sentinel -1
+  // 1) Native alarm/warn/lamp/mil channels — strict boolean state, ignore sentinel -1.
+  const COUNTER_TOKENS = ["milisecond", "second", "minute", "hour", "counter", "timer", "distance"];
   for (const c of file.channels) {
     if (c.empty || c.nSamples === 0) continue;
     const nm = norm(c.name);
+    // Exclude continuous/counter channels even if name partially matches.
+    if (c.category === "GPS") continue;
+    if (COUNTER_TOKENS.some((t) => nm.includes(t))) continue;
     const isAlarm =
-      nm.startsWith("alarm") ||
-      nm.startsWith("warn") ||
-      nm.includes("lamp") ||
-      nm.includes(" mil") ||
-      nm === "mil" ||
-      nm.endsWith(" mil");
+      nm.startsWith("alarm ") ||
+      nm.startsWith("warn ") ||
+      nm.endsWith(" lamp") ||
+      nm.endsWith(" mil") ||
+      nm === "abs lamp" ||
+      nm === "abs mil";
     if (!isAlarm) continue;
     const intervals = extractActiveIntervals(c.values, (v) => {
       if (v === -1) return false; // sentinel: not-valid
-      return Math.round(v) > 0;
+      return Math.round(v) === 1; // boolean active state only
     });
     for (const iv of intervals) {
       pushInterval(c, "alarm", iv, { peakValue: iv.peak });
@@ -135,16 +139,18 @@ export function buildSessionDebrief(
   // toolset metadata only, with no corresponding logged channel in the .ld file
   // that we can verify. Skipped to avoid inventing data.
 
-  // 3) Threshold violations — only toolset-defined alarmEnabled channels.
+  // 3) Threshold violations — only toolset-defined alarmEnabled channels with a
+  // significant range (skip default 0–1000 placeholder ranges).
   for (const c of file.channels) {
     if (c.empty || c.nSamples === 0) continue;
     const meta = metaByName.get(norm(c.name));
-    if (!meta || !meta.alarmEnabled) continue;
+    if (!meta || !meta.alarmEnabled || !meta.hasSignificantRange) continue;
     const lo = meta.alarmMinimum;
     const hi = meta.alarmMaximum;
     if (lo === undefined && hi === undefined) continue;
     const intervals = extractActiveIntervals(c.values, (v) => {
       if (!Number.isFinite(v)) return false;
+      if (v === -1) return false; // sentinel: not-valid sample
       if (lo !== undefined && v < lo) return true;
       if (hi !== undefined && v > hi) return true;
       return false;
