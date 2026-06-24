@@ -833,7 +833,7 @@ function LapChannelTraces({
   }
 
   const traces = TRACE_SPECS.map((spec) => {
-    const ch = findChannel(file, spec.aliases);
+    const ch = findChannel(file, spec.logical);
     if (!ch) return { spec, data: null as null | { x: number; y: number }[], ref: null as null | { x: number; y: number }[] };
     const raw = buildLapSeries(ch, lapCh, lap.tStart, lap.tEnd);
     if (raw.length === 0) return { spec, data: null, ref: null };
