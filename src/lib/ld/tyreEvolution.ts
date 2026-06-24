@@ -295,8 +295,8 @@ export function buildTyreEvolution(file: LdFile, lapRows: LapRow[]): TyreEvoluti
   const ch = file.channels;
   const validLaps = lapRows.filter((l) => l.isValidLap);
 
-  const tempRaw = buildRawSeries(ch, "tpms temp", validLaps);
-  const pressRaw = buildRawSeries(ch, "tpms press", validLaps);
+  const tempRaw = buildRawSeries(ch, "tyreTemp", validLaps);
+  const pressRaw = buildRawSeries(ch, "tyrePress", validLaps);
 
   const hasTpms = WHEELS.some(
     (w) => tempRaw[w].channelFound || pressRaw[w].channelFound,
