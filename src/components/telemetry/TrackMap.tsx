@@ -113,7 +113,7 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="hsl(var(--ink))"
+            stroke="#1a1a1a"
             strokeOpacity={0.15}
             strokeWidth={14}
             strokeLinejoin="round"
@@ -124,7 +124,7 @@ export function TrackMap({
           <path
             d={pathD}
             fill="none"
-            stroke="hsl(var(--ink))"
+            stroke="#1a1a1a"
             strokeOpacity={1}
             strokeWidth={6}
             strokeLinejoin="round"
