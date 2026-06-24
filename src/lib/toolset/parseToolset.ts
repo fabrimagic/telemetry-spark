@@ -2,7 +2,9 @@ import type {
   ToolsetCanBus,
   ToolsetChannelEntry,
   ToolsetContentType,
+  ToolsetDisplayMeta,
   ToolsetFile,
+  ToolsetIoSensor,
   ToolsetPart,
 } from "./types";
 import { categorizeToolset } from "./categorize";
@@ -20,9 +22,25 @@ const CONTENT_TYPES = "[Content_Types].xml";
 
 const SNAKE_NAME_RE = /^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+){1,}$/;
 const CAN_BUS_RE = /^CAN\s+(\d+)(?:\s+(\S[^\x00]*))?$/i;
-const VERSION_RE = /\b(Hardware|Software|Firmware)\s+Version\b[^\x00]*/i;
+const VERSION_RE = /\b(Hardware|Software|Firmware)\s+Version\b/i;
 const ALARM_RE = /(error|alarm|timed\s*out|check\s|fault|warning)/i;
+const PORT_RE = /^(Input|Digital)\s+\d{1,3}$/;
 const DEVICE_HINTS = ["Porsche", "Badenia", "Cosworth", "Pi Research"];
+
+// Calibration hint patterns — match raw textual indicators only, never compute factors.
+const CALIBRATION_RES: RegExp[] = [
+  /\bmV\s*\/\s*G\b/i,
+  /\bmV\s*\/\s*DaN\b/i,
+  /\bMV\s*per\s*bar\b/i,
+  /\bcounts\s+from\b/i,
+  /\bGain\s*:/i,
+  /\bbar\s*sensor\b/i,
+];
+
+// Default placeholder range for "no real range set". Used to flag significant ranges.
+function isPlaceholderRange(min: number | undefined, max: number | undefined): boolean {
+  return min === 0 && max === 1000;
+}
 
 export async function parseToolset(
   fileName: string,
@@ -47,11 +65,13 @@ export async function parseToolset(
     method: e.method,
     methodLabel: methodLabel(e.method),
     extracted: false,
-    reason: isExtractable(e.method) ? undefined : `compressione ${methodLabel(e.method)} non supportata in-browser`,
+    reason: isExtractable(e.method)
+      ? undefined
+      : `compressione ${methodLabel(e.method)} non supportata in-browser`,
   }));
 
   // --- [Content_Types].xml ---
-  progress(15, "Lettura [Content_Types].xml");
+  progress(10, "Lettura [Content_Types].xml");
   const contentTypes: ToolsetContentType[] = [];
   const ctEntry = entries.find((e) => e.name === CONTENT_TYPES);
   if (ctEntry) {
@@ -63,15 +83,16 @@ export async function parseToolset(
         contentTypes.push(...parseContentTypesXml(xml));
       }
     } catch {
-      // leave contentTypes empty; we still proceed
+      /* leave empty, proceed */
     }
   }
 
   // --- setup.binary ---
-  progress(35, "Estrazione stringhe da setup.binary");
+  progress(25, "Estrazione setup.binary");
   const setupEntry = entries.find((e) => e.name === SETUP_BINARY);
   let strings: string[] = [];
   let setupPresent = false;
+  let setupText = "";
   if (setupEntry) {
     setupPresent = true;
     if (!isExtractable(setupEntry.method)) {
@@ -84,22 +105,27 @@ export async function parseToolset(
       throw new ToolsetParseError("setup.binary non estraibile");
     }
     markExtracted(parts, setupEntry.name);
+    // Two views over the same bytes:
+    //  - `strings`: extracted printable runs, in order, for token-pattern matches.
+    //  - `setupText`: a lossless 1:1 latin-1 decoding for regex matches on
+    //    embedded XAML (cross-string content).
     strings = extractAsciiStrings(bytes, 4);
+    setupText = decodeLatin1(bytes);
   }
 
-  progress(70, "Analisi stringhe");
+  progress(55, "Analisi stringhe");
 
   const canBusesMap = new Map<number, string>();
   const channelMap = new Map<string, ToolsetChannelEntry>();
   const alarms = new Set<string>();
   const versions = new Set<string>();
+  const calibrationHints = new Set<string>();
+  const ioMap = new Map<string, ToolsetIoSensor>();
   let deviceHint: string | undefined;
 
-  // First pass: classify each string and build channel descriptions from neighbours.
   for (let i = 0; i < strings.length; i++) {
     const s = strings[i];
 
-    // Device hint
     if (!deviceHint) {
       for (const hint of DEVICE_HINTS) {
         if (s.toLowerCase().includes(hint.toLowerCase())) {
@@ -121,17 +147,20 @@ export async function parseToolset(
       continue;
     }
 
-    // Version
-    const vMatch = s.match(VERSION_RE);
-    if (vMatch) {
+    // Version (length-capped per spec)
+    if (VERSION_RE.test(s) && s.length < 60) {
       versions.add(s.trim());
       continue;
+    }
+
+    // Calibration hints
+    if (s.length <= 120 && CALIBRATION_RES.some((re) => re.test(s))) {
+      calibrationHints.add(s.trim());
     }
 
     // Alarm / diagnostic
     if (ALARM_RE.test(s) && s.length <= 200) {
       alarms.add(s.trim());
-      // fall through — alarms can still look like channel names occasionally, but skip
       continue;
     }
 
@@ -146,10 +175,35 @@ export async function parseToolset(
           category: categorizeToolset(s),
         });
       }
+
+      // I/O sensor triple: [description][port][snake_name]
+      const portToken = strings[i - 1];
+      const descToken = strings[i - 2];
+      if (
+        portToken &&
+        PORT_RE.test(portToken) &&
+        descToken &&
+        isHumanDescription(descToken, s)
+      ) {
+        if (!ioMap.has(s)) {
+          ioMap.set(s, {
+            name: s,
+            description: descToken.trim(),
+            port: portToken.trim(),
+            category: categorizeToolset(s),
+          });
+        }
+      }
     }
   }
 
-  // Build CAN bus list, count channels heuristically associated by label substring.
+  // --- XAML <dash:Channel> blocks ---
+  progress(80, "Parsing blocchi dash:Channel");
+  const { displayMeta, totalBlocks } = setupText
+    ? parseDashChannelBlocks(setupText)
+    : { displayMeta: [], totalBlocks: 0 };
+
+  // Build CAN bus list
   const channels = Array.from(channelMap.values());
   const canBuses: ToolsetCanBus[] = Array.from(canBusesMap.entries())
     .sort((a, b) => a[0] - b[0])
@@ -175,6 +229,10 @@ export async function parseToolset(
     deviceHint,
     canBuses,
     channels: channels.sort((a, b) => a.name.localeCompare(b.name)),
+    displayMeta: displayMeta.sort((a, b) => a.sourceName.localeCompare(b.sourceName)),
+    dashChannelBlocks: totalBlocks,
+    ioSensors: Array.from(ioMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+    calibrationHints: Array.from(calibrationHints).sort(),
     alarms: Array.from(alarms).sort(),
     versions: Array.from(versions).sort(),
     notExtracted,
@@ -193,25 +251,87 @@ function markExtracted(parts: ToolsetPart[], name: string) {
 
 function isHumanDescription(s: string | undefined, owner: string): boolean {
   if (!s) return false;
-  if (s.length < 3 || s.length > 120) return false;
+  if (s.length < 2 || s.length > 120) return false;
   if (s === owner) return false;
-  if (SNAKE_NAME_RE.test(s)) return false; // looks like another channel id
-  // must contain at least one letter and one space, or mixed case with a letter
+  if (SNAKE_NAME_RE.test(s)) return false;
+  if (PORT_RE.test(s)) return false;
   const hasLetter = /[A-Za-z]/.test(s);
   if (!hasLetter) return false;
   const hasSpaceOrMixed = /\s/.test(s) || /[A-Z]/.test(s);
   return hasSpaceOrMixed;
 }
 
+function decodeLatin1(bytes: Uint8Array): string {
+  // 1:1 byte-to-char mapping, lossless for any byte. Avoids replacement chars
+  // that would split or corrupt embedded XAML text.
+  let out = "";
+  const CHUNK = 0x4000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const end = Math.min(i + CHUNK, bytes.length);
+    out += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, end)));
+  }
+  return out;
+}
+
+/**
+ * Scan setup.binary text for <dash:Channel ... /> or <dash:Channel ... > blocks.
+ * Returns last-wins display metadata per unique SourceName and the total block count.
+ */
+function parseDashChannelBlocks(text: string): {
+  displayMeta: ToolsetDisplayMeta[];
+  totalBlocks: number;
+} {
+  const blockRe = /<dash:Channel\b([^>]*?)\/?>/g;
+  const attrRe = /(\w+)\s*=\s*"([^"]*)"/g;
+  const bySource = new Map<string, ToolsetDisplayMeta>();
+  let totalBlocks = 0;
+  let m: RegExpExecArray | null;
+  while ((m = blockRe.exec(text))) {
+    totalBlocks++;
+    const attrs: Record<string, string> = {};
+    let a: RegExpExecArray | null;
+    attrRe.lastIndex = 0;
+    while ((a = attrRe.exec(m[1]))) {
+      attrs[a[1]] = a[2];
+    }
+    const sourceName = attrs.SourceName;
+    if (!sourceName) continue;
+
+    const minimum = numAttr(attrs.Minimum);
+    const maximum = numAttr(attrs.Maximum);
+
+    const meta: ToolsetDisplayMeta = {
+      sourceName,
+      category: categorizeToolset(sourceName),
+      quantity: attrs.Quantity || undefined,
+      userUnit: attrs.UserUnit || undefined,
+      decimalPlaces: numAttr(attrs.DecimalPlaces),
+      minimum,
+      maximum,
+      alarmMinimum: numAttr(attrs.AlarmMinimum),
+      alarmMaximum: numAttr(attrs.AlarmMaximum),
+      alarmEnabled: attrs.AlarmEnabled ? attrs.AlarmEnabled.toLowerCase() === "true" : undefined,
+      hasSignificantRange:
+        minimum !== undefined && maximum !== undefined && !isPlaceholderRange(minimum, maximum),
+    };
+    bySource.set(sourceName, meta); // last wins
+  }
+  return { displayMeta: Array.from(bySource.values()), totalBlocks };
+}
+
+function numAttr(v: string | undefined): number | undefined {
+  if (v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function parseContentTypesXml(xml: string): ToolsetContentType[] {
   const out: ToolsetContentType[] = [];
-  // Default elements: <Default Extension="xml" ContentType="…"/>
   const defaultRe = /<Default\s+[^>]*Extension="([^"]+)"[^>]*ContentType="([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = defaultRe.exec(xml))) {
     out.push({ key: `*.${m[1]}`, contentType: m[2] });
   }
-  // Override elements: <Override PartName="/setup.binary" ContentType="…"/>
   const overrideRe = /<Override\s+[^>]*PartName="([^"]+)"[^>]*ContentType="([^"]+)"/gi;
   while ((m = overrideRe.exec(xml))) {
     out.push({ key: m[1], contentType: m[2] });
@@ -224,7 +344,9 @@ function buildNotExtractedList(parts: ToolsetPart[], setupPresent: boolean): str
   const lzma = parts.filter((p) => p.method === 14);
   if (lzma.length) {
     out.push(
-      `Package LZMA non estratti (${lzma.length}): ${lzma.map((p) => p.name).join(", ")} — le librerie ZIP browser standard non decomprimono LZMA.`,
+      `Package Metadata/Autocoding compressi in LZMA (${lzma.length}: ${lzma
+        .map((p) => p.name)
+        .join(", ")}): DLL di UI, non estratti — le librerie ZIP browser standard non decomprimono LZMA.`,
     );
   }
   const otherUnsupported = parts.filter(
@@ -239,10 +361,13 @@ function buildNotExtractedList(parts: ToolsetPart[], setupPresent: boolean): str
   }
   if (setupPresent) {
     out.push(
-      "Definizioni binarie dei canali in setup.binary (CAN ID numerici, bit offset, scala, offset, soglie): non decodificate — il layout binario proprietario Cosworth non è documentato.",
+      "Mappatura binaria canale → CAN ID → bit offset → scala/offset: non decodificata. Il layout binario proprietario Cosworth in setup.binary non è documentato.",
+    );
+    out.push(
+      "Unità certe disponibili solo per il sottoinsieme di canali con metadati display (blocchi dash:Channel).",
     );
   } else {
-    out.push("setup.binary assente: nessuna stringa di configurazione estraibile.");
+    out.push("setup.binary assente: nessuna configurazione estraibile.");
   }
   return out;
 }
