@@ -495,13 +495,13 @@ export function buildStintAnalysis(
 
   /* ----- 3. Setup changes ----- */
   const setupChanges: SetupChange[] = [];
-  const setupSpecs: Array<{ key: SetupChannelKey; nm: string; label: string }> = [
-    { key: "brkbias", nm: "log brkbias", label: "Brake Bias" },
-    { key: "mappos", nm: "ecu mappos", label: "Engine Map" },
-    { key: "tc", nm: "stw rt01 tc lat", label: "TC Map" },
+  const setupSpecs: Array<{ key: SetupChannelKey; logical: LogicalKey; label: string }> = [
+    { key: "brkbias", logical: "brakeBias", label: "Brake Bias" },
+    { key: "mappos", logical: "engineMap", label: "Engine Map" },
+    { key: "tc", logical: "tcMap", label: "TC Map" },
   ];
   for (const spec of setupSpecs) {
-    const c = findChannel(ch, spec.nm);
+    const c = resolveChannel(ch, spec.logical);
     if (!c) continue;
     const v = c.values;
     const freq = c.freq || 1;
