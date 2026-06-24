@@ -66,9 +66,6 @@ function extractActiveIntervals(
   return out;
 }
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName);
-}
 
 export function buildSessionDebrief(
   file: LdFile,
