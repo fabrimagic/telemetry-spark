@@ -631,3 +631,54 @@ export function buildOverlay(
   }
   return out;
 }
+
+/* ============================ Reusable resampling API ============================ */
+
+/** Resolve the comparison channels on a file (logical keys only). */
+export function resolveComparisonChannels(
+  file: LdFile,
+): Partial<Record<ComparisonChannelKey, Channel>> {
+  const out: Partial<Record<ComparisonChannelKey, Channel>> = {};
+  for (const key of CHANNEL_KEYS) {
+    const ch = resolveChannel(file.channels, key as LogicalKey);
+    if (ch) out[key] = ch;
+  }
+  return out;
+}
+
+/** Build a uniform distance grid [0..lapLength] sampled at GRID_POINTS points
+ *  from the reference lap's measured monotonic distance. */
+export function buildReferenceGrid(
+  file: LdFile,
+  refLap: LapRow,
+): { grid: Float32Array; lapLength: number; lapCh: Channel } | null {
+  const lapCh = resolveChannel(file.channels, "lapDistance");
+  if (!lapCh) return null;
+  const lapLength = estimateLapLength(lapCh, refLap.tStart, refLap.tEnd);
+  if (!(lapLength > 0)) return null;
+  const grid = new Float32Array(GRID_POINTS);
+  const step = lapLength / (GRID_POINTS - 1);
+  for (let i = 0; i < GRID_POINTS; i++) grid[i] = i * step;
+  return { grid, lapLength, lapCh };
+}
+
+/** Resample any lap onto a pre-built reference grid. Returns null if the
+ *  Lap Distance channel is missing. Reuses the same internal sampler as
+ *  buildLapComparison. */
+export function resampleLapOnGrid(
+  file: LdFile,
+  lap: LapRow,
+  grid: Float32Array,
+  channels?: Partial<Record<ComparisonChannelKey, Channel>>,
+): ResampledLap | null {
+  const lapCh = resolveChannel(file.channels, "lapDistance");
+  if (!lapCh) return null;
+  const ch = channels ?? resolveComparisonChannels(file);
+  return resampleLap(file, lap, grid, lapCh, ch);
+}
+
+/** The fractional brake threshold used by detectBrakingZones and exposed for
+ *  downstream features that must apply the SAME definition (e.g. braking
+ *  signature). */
+export const BRAKE_THRESHOLD_FRACTION = 0.18;
+
