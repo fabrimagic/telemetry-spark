@@ -844,7 +844,17 @@ function LapChannelTraces({
             </div>
             <div className="h-32 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                <LineChart
+                  data={merged}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                  onMouseMove={(s: { activeLabel?: number | string }) => {
+                    if (!onCursorDistChange) return;
+                    const v = s?.activeLabel;
+                    const n = typeof v === "number" ? v : v !== undefined ? Number(v) : NaN;
+                    if (Number.isFinite(n)) onCursorDistChange(n);
+                  }}
+                  onMouseLeave={() => onCursorDistChange?.(null)}
+                >
                   <CartesianGrid stroke="hsl(var(--ink) / 0.1)" strokeDasharray="2 2" />
                   <XAxis
                     type="number"
@@ -872,6 +882,15 @@ function LapChannelTraces({
                       name === "yRef" ? `L${refLap?.lap ?? "?"}` : `L${lap.lap}`,
                     ]}
                   />
+                  {cursorDist !== null && Number.isFinite(cursorDist) && (
+                    <ReferenceLine
+                      x={cursorDist}
+                      stroke="hsl(var(--race-red))"
+                      strokeOpacity={0.6}
+                      strokeDasharray="2 2"
+                      ifOverflow="hidden"
+                    />
+                  )}
                   {ref && (
                     <Line
                       type="monotone"
@@ -902,6 +921,7 @@ function LapChannelTraces({
     </div>
   );
 }
+
 
 /* ============ Coherence status banner ============ */
 
