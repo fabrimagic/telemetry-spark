@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 const tabs = [
   { to: "/", label: "Overview" },
   { to: "/debrief", label: "Stint Analysis" },
+  { to: "/docs", label: "Docs" },
 ] as const;
 
 export function MainTabs() {

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
 import { FileDropzone } from "@/components/telemetry/FileDropzone";
@@ -377,6 +377,15 @@ function EmptyState({ children }: { children: React.ReactNode }) {
       </div>
 
       {children}
+
+      <div className="mt-6 text-center font-mono text-[11px] uppercase tracking-widest">
+        <Link
+          to="/docs"
+          className="inline-flex items-center gap-2 border border-ink bg-card px-3 py-1.5 text-ink transition-colors hover:bg-hazard"
+        >
+          📖 Consulta la documentazione
+        </Link>
+      </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
         <SpecCard title=".LD" body="Telemetria MoTeC, descrittori linked-list, dati int16/int32." />
