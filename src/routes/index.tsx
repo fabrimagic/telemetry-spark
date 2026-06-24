@@ -410,9 +410,9 @@ function SessionRibbon({
               <span>·</span>
               <span>{device || "Device n/d"}</span>
               <span>·</span>
-              <span>
-                {date} {time}
-              </span>
+              <span>{date || "Data n/d"}</span>
+              <span>·</span>
+              <span>Ora {time || "n/d"}</span>
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -427,16 +427,18 @@ function SessionRibbon({
           <div className="flex shrink-0 flex-col items-end justify-between border-l border-ink/20 pl-6">
             <div className="text-right">
               <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                Fastest Lap
+                Giro veloce
               </div>
               <div className="font-display text-7xl leading-none tabular-nums tracking-widest text-foreground">
-                {fastestTime ?? "—:—:—"}
+                {fastestTime ?? "n/d"}
               </div>
               <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-race-red">
-                {fastestLap ? `LAP ${fastestLap}` : "no data"}
+                {fastestLap ? `Giro ${fastestLap}` : "—"}
               </div>
             </div>
           </div>
+        </div>
+
         </div>
 
         {/* bottom hazard sliver */}
