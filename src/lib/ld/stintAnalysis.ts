@@ -166,20 +166,15 @@ function statsOver(c: Channel, lap: Lap): { min: number; max: number; avg: numbe
 
 function tempCornerStats(
   channels: Channel[],
-  baseNorm: string,
+  base: "brakeDiscTemp" | "tyreTemp",
   lap: Lap,
 ): LapTempCorner {
-  const corners: Array<["fl" | "fr" | "rl" | "rr", string]> = [
-    ["fl", `${baseNorm} fl`],
-    ["fr", `${baseNorm} fr`],
-    ["rl", `${baseNorm} rl`],
-    ["rr", `${baseNorm} rr`],
-  ];
+  const wheels: WheelKey[] = ["fl", "fr", "rl", "rr"];
   const out: LapTempCorner = {};
   const avgs: Record<string, number> = {};
   let maxAll = -Infinity;
-  for (const [k, nm] of corners) {
-    const ch = findChannel(channels, nm);
+  for (const k of wheels) {
+    const ch = resolveChannel(channels, `${base}.${k}` as LogicalKey);
     if (!ch) continue;
     const s = statsOver(ch, lap);
     if (s.n === 0) continue;
