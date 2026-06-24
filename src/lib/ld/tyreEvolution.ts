@@ -51,9 +51,6 @@ export interface TyreEvolution {
 
 const WHEELS: WheelKey[] = ["fl", "fr", "rl", "rr"];
 
-function findChannel(channels: Channel[], normName: string): Channel | undefined {
-  return channels.find((c) => norm(c.name) === normName && !c.empty && c.nSamples > 0);
-}
 
 function isValid(v: number): boolean {
   return Number.isFinite(v) && v !== -1;
