@@ -164,8 +164,12 @@ function DebriefPage() {
               {laps.map((r, i) => (
                 <TableRow
                   key={r.lap}
-                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""}`}
-                  onClick={() => setSelectedLap(selectedLap === r.lap ? "all" : r.lap)}
+                  className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${r.isFastest ? "border-l-2 border-l-race-red" : ""} ${selectedLap === r.lap ? "bg-race-red/5" : ""} ${!r.isValidLap ? "opacity-50" : ""}`}
+                  onClick={() => {
+                    if (!r.isValidLap) return;
+                    setSelectedLap(selectedLap === r.lap ? "all" : r.lap);
+                  }}
+                  title={r.isValidLap ? undefined : "Giro non valido (frammento / out-in lap)"}
                 >
                   <TableCell className={`font-mono text-xs tabular-nums ${r.isFastest ? "text-race-red font-bold" : ""}`}>
                     L{r.lap}
@@ -174,16 +178,17 @@ function DebriefPage() {
                     {fmtLapTime(r.durationS)}
                   </TableCell>
                   {has.speed && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxSpeed, 1)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxSpeed, 1) : "—"}</TableCell>
                   )}
                   {has.rpm && (
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.maxRpm, 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.isValidLap ? fmt(r.maxRpm, 0) : "—"}</TableCell>
                   )}
                   {has.abs && (
                     <TableCell className="text-right font-mono text-xs tabular-nums">{r.absCount}</TableCell>
                   )}
                   <TableCell className="space-x-1">
                     {r.isFastest && <MiniBadge tone="red">fastest</MiniBadge>}
+                    {!r.isValidLap && <MiniBadge tone="ink">invalid</MiniBadge>}
                     {r.isOutLap && <MiniBadge tone="ink">out-lap</MiniBadge>}
                     {r.hasAbs && <MiniBadge tone="ink">abs</MiniBadge>}
                     {r.hasAlarm && <MiniBadge tone="red">alarm</MiniBadge>}
