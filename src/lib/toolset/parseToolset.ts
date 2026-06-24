@@ -25,9 +25,12 @@ const CONTENT_TYPES = "[Content_Types].xml";
 const SNAKE_NAME_RE = /^[a-z][a-z0-9]*(?:_[a-zA-Z0-9]+)+$/;
 const CAN_BUS_RE = /^CAN\s+0*(\d+)(?:\s+([\x20-\x7e]+))?$/i;
 const VERSION_RE = /\b(Hardware|Software|Firmware)\s+Version\b/i;
-const ALARM_RE = /(error|alarm|timed\s*out|check\s|fault|warning)/i;
-// XAML markup tokens that pollute the alarm set when matched as plain strings.
-const ALARM_XAML_MARKER_RE = /<dash:|TextBlock|SourceName=|<\w+:|xmlns/i;
+// Strict alarm keywords per spec: Error / Alarm / Warning / timed out / Check.
+const ALARM_RE = /(Error|Alarm|Warning|timed out|Check)/;
+// Any XAML markup token disqualifies the string from the alarm set.
+const ALARM_XAML_MARKER_RE = /<|dash:|SourceName=|TextBlock|Style=|Resource|xmlns/;
+const ALARM_MIN_LEN = 8;
+const ALARM_MAX_LEN = 120;
 const PORT_RE = /^(Input|Digital)\s+\d{1,3}$/;
 const DEVICE_HINTS = ["Porsche", "Badenia", "Cosworth", "Pi Research"];
 
