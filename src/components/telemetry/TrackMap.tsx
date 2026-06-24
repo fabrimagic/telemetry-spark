@@ -125,7 +125,7 @@ export function TrackMap({
             d={pathD}
             fill="none"
             stroke="hsl(var(--ink))"
-            strokeOpacity={0.75}
+            strokeOpacity={1}
             strokeWidth={6}
             strokeLinejoin="round"
             strokeLinecap="round"
