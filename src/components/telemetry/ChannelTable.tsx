@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Props {
   channels: Channel[];
+  lapCount?: number;
 }
 
 function fmt(n: number) {
@@ -22,7 +23,7 @@ function fmt(n: number) {
   return n.toFixed(3);
 }
 
-export function ChannelTable({ channels }: Props) {
+export function ChannelTable({ channels, lapCount }: Props) {
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -41,6 +42,9 @@ export function ChannelTable({ channels }: Props) {
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           {filtered.length} / {channels.length}
         </div>
+      </div>
+      <div className="border-b border-ink/10 bg-hazard/10 px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-ink/80">
+        N = campioni totali del canale nel file{lapCount && lapCount > 1 ? ` (intero file, ${lapCount} giri)` : ""}. Min/Max/Avg calcolati su tutti i campioni validi (sentinella −1 esclusi per distanze, tempi, contatori).
       </div>
       <ScrollArea className="max-h-[520px]">
         <Table>
