@@ -124,11 +124,15 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
       // B2: for channels where negative values are NOT physically plausible
       // (distances, times, counters, lap numbers, busy flags), exclude
       // sentinel samples (<= -1) from min/max/avg.
+      // Lap Speed is additionally a sparse end-of-lap channel: most samples
+      // are 0 placeholders; exclude them so stats reflect the few real values.
       const filterSentinel = isSentinelFiltered(name);
+      const filterZeros = /^lap\s*speed$/i.test(name);
       let min = Infinity, max = -Infinity, sum = 0, cnt = 0;
       for (let j = 0; j < nSamples; j++) {
         const v = values[j];
         if (filterSentinel && v <= -1) continue;
+        if (filterZeros && v === 0) continue;
         if (v < min) min = v;
         if (v > max) max = v;
         sum += v; cnt++;
