@@ -186,7 +186,7 @@ function DocsPage() {
         </aside>
 
         {/* Content */}
-        <main className="col-span-12 space-y-10 lg:col-span-9">
+        <main className="col-span-12 min-w-0 space-y-6 lg:col-span-9">
           {/* ---------- Intro ---------- */}
           <Section id="intro" title="Introduzione">
             <p>
