@@ -47,7 +47,7 @@ function fmtTime(d: Date) {
 /* ---------------------------- component ------------------------- */
 
 function Index() {
-  const loader = useLdLoader();
+  const loader = useLdLoaderContext();
   const primary = loader.files[0];
   const hasAnything = loader.files.length > 0 || loader.toolsets.length > 0;
   const clock = useClock();
