@@ -385,8 +385,8 @@ export function buildStintAnalysis(
       isOutLap: Number.isFinite(validBandHi) && lap.duration > validBandHi,
       isFastest: false,
       isValidLap: false, // filled in pass 2
-      brakes: tempCornerStats(ch, "log brkdisctemp", lap),
-      tyres: tempCornerStats(ch, "tpms temp", lap),
+      brakes: tempCornerStats(ch, "brakeDiscTemp", lap),
+      tyres: tempCornerStats(ch, "tyreTemp", lap),
       _durationValid: durValid,
     };
   });
