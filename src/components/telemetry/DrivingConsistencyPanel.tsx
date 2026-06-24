@@ -598,9 +598,17 @@ export function DrivingConsistencyPanel({
         Tutte le grandezze derivano da canali misurati e dalle zone ancorate al
         giro di riferimento (L{result.refLap?.lap}). Gli indici di dispersione
         (σ, CV) sono statistiche campionarie; la deriva prima/seconda metà è
-        un'osservazione dei dati e non una diagnosi. Il giudizio resta
-        all'ingegnere.
+        un'osservazione dei dati e non una diagnosi. Il{" "}
+        <span className="font-bold">radar</span> normalizza{" "}
+        <span className="font-bold">ogni asse (zona) indipendentemente</span> sul
+        range locale dei due valori (1ª + 2ª metà di quella zona) con un padding
+        del 25%: mostra quindi la <span className="font-bold">forma relativa</span>{" "}
+        del confronto, non valori assoluti. L'area racchiusa e la distanza dal
+        centro <span className="font-bold">non</span> sono grandezze fisiche; i
+        valori reali restano nel tooltip e nella tabella sottostante. Il
+        giudizio resta all'ingegnere.
       </p>
+
     </div>
   );
 }
