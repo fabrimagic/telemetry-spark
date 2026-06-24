@@ -320,10 +320,12 @@ export function buildStintAnalysis(
     return n > 0 && Number.isFinite(mx) ? mx : undefined;
   }
 
-  const lapRows: LapRow[] = laps.map((lap) => {
-    const validLap = isValidDuration(lap.duration);
-    const sMax = validLap && speed ? maxOver(speed, lap) : undefined;
-    const rMax = validLap && rpm ? maxOver(rpm, lap, rpmUpperCap) : undefined;
+  // Pass 1: compute per-lap maxima for ALL laps (independent of validity),
+  // plus duration-based validity and per-lap alarms.
+  type LapDraft = LapRow & { _durationValid: boolean };
+  const drafts: LapDraft[] = laps.map((lap) => {
+    const sMax = speed ? maxOver(speed, lap) : undefined;
+    const rMax = rpm ? maxOver(rpm, lap, rpmUpperCap) : undefined;
     const absInLap = absHits.filter((h) => h.lap === lap.index);
     let hasAlarm = false;
     for (const ac of alarmChannels) {
@@ -337,6 +339,7 @@ export function buildStintAnalysis(
       }
       if (hasAlarm) break;
     }
+    const durValid = isValidDuration(lap.duration);
     return {
       lap: lap.index,
       tStart: lap.tStart,
@@ -348,14 +351,43 @@ export function buildStintAnalysis(
       hasAbs: absInLap.length > 0,
       hasAlarm,
       isOutLap: Number.isFinite(validBandHi) && lap.duration > validBandHi,
-      isFastest: false, // filled below
-      isValidLap: validLap,
+      isFastest: false,
+      isValidLap: false, // filled in pass 2
       brakes: tempCornerStats(ch, "log brkdisctemp", lap),
       tyres: tempCornerStats(ch, "tpms temp", lap),
+      _durationValid: durValid,
     };
   });
 
-  // Fastest is taken only among valid laps.
+  // Data-driven movement threshold: median of maxSpeed across duration-valid laps,
+  // scaled by MOVEMENT_FRACTION. A box-lap with maxSpeed ~ 0 fails this test.
+  const MOVEMENT_FRACTION = 0.5;
+  let movementThreshold: number | undefined;
+  if (speed) {
+    const speedsFromDurationValid = drafts
+      .filter((d) => d._durationValid && d.maxSpeed !== undefined && Number.isFinite(d.maxSpeed))
+      .map((d) => d.maxSpeed as number)
+      .sort((a, b) => a - b);
+    if (speedsFromDurationValid.length > 0) {
+      const medSpeed = speedsFromDurationValid[Math.floor(speedsFromDurationValid.length / 2)];
+      if (Number.isFinite(medSpeed) && medSpeed > 0) {
+        movementThreshold = medSpeed * MOVEMENT_FRACTION;
+      }
+    }
+  }
+
+  // Pass 2: combined validity (duration + movement) and fastest among those.
+  const lapRows: LapRow[] = drafts.map(({ _durationValid, ...row }) => {
+    const movementOk =
+      movementThreshold === undefined
+        ? true // no speed channel or no reference: fall back to duration-only validity
+        : row.maxSpeed !== undefined &&
+          Number.isFinite(row.maxSpeed) &&
+          row.maxSpeed >= movementThreshold;
+    return { ...row, isValidLap: _durationValid && movementOk };
+  });
+
+  // Fastest is taken only among combined-valid laps.
   let bestIdx = -1;
   let bestT = Infinity;
   lapRows.forEach((r, idx) => {
