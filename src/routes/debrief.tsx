@@ -375,7 +375,15 @@ function DebriefPage() {
 
             {/* Track map for this lap */}
             <Section title="Track Map">
-              <TrackMap file={file} refLap={lapRowToLap(selected)} />
+              <TrackMap
+                file={file}
+                refLap={lapRowToLap(selected)}
+                cursorDist={cursorDist}
+                onCursorDistChange={setCursorDist}
+                absMarkers={absMarkers}
+                setupMark={setupMark}
+              />
+              <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
             </Section>
 
             {/* Channel traces vs lap distance */}
@@ -384,8 +392,11 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                cursorDist={cursorDist}
+                onCursorDistChange={setCursorDist}
               />
             </Section>
+
 
 
             {/* ABS hits */}
