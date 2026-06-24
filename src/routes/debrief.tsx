@@ -1,12 +1,19 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLdLoaderContext } from "@/context/LdLoaderContext";
-import { buildStintAnalysis, type LapRow, type LapTempCorner, type LapCoherence } from "@/lib/ld/stintAnalysis";
+import {
+  buildStintAnalysis,
+  type LapRow,
+  type LapTempCorner,
+  type LapCoherence,
+  type SetupChange,
+  type AbsHit,
+} from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrackMap } from "@/components/telemetry/TrackMap";
+import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
 import {
   Table,
   TableBody,
@@ -19,6 +26,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -34,6 +42,7 @@ function lapRowToLap(r: LapRow): Lap {
     absoluteIndex: r.absoluteLap,
   };
 }
+
 
 export const Route = createFileRoute("/debrief")({
   head: () => ({
@@ -132,6 +141,18 @@ function DebriefPage() {
 
   const [selectedLap, setSelectedLap] = useState<number | "all">("all");
   const [lapFilter, setLapFilter] = useState<"all" | "valid" | "invalid">("all");
+  const [cursorDist, setCursorDist] = useState<number | null>(null);
+  const [setupMark, setSetupMark] = useState<{ d: number; label: string } | null>(null);
+  /** Pending setup-change focus: requested from the global timeline before the
+   *  target lap drill-down has mounted; consumed by the effect below. */
+  const pendingSetupRef = useRef<{ lap: number; tSec: number; label: string } | null>(null);
+
+  // Reset cursor / marker when the active lap changes.
+  useEffect(() => {
+    setCursorDist(null);
+    setSetupMark(null);
+  }, [selectedLap]);
+
 
   if (!file || !analysis) {
     return (
@@ -162,6 +183,59 @@ function DebriefPage() {
   const selected = selectedLap === "all" ? null : laps.find((l) => l.lap === selectedLap) ?? null;
   const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
   const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
+
+  // Distance↔time index for the selected lap (used by spatial interactions).
+  const distTime = useMemo(
+    () => (selected ? buildDistTimeIndex(file, selected) : null),
+    [file, selected],
+  );
+
+  // Cursor sample (channel values + per-corner temps at cursorDist).
+  const cursorSample = useMemo(() => {
+    if (!selected || cursorDist == null || !distTime) return null;
+    const t = distTime.tAt(cursorDist);
+    if (t == null) return null;
+    return sampleAtTime(file, t);
+  }, [file, selected, cursorDist, distTime]);
+
+  // ABS markers (for the map overlay) drawn from this lap's hits.
+  const absMarkers: TrackAbsMarker[] = useMemo(
+    () =>
+      lapAbs
+        .filter((h): h is AbsHit & { lapDistance: number } =>
+          h.lapDistance !== undefined && Number.isFinite(h.lapDistance),
+        )
+        .map((h) => ({ d: h.lapDistance, durationS: h.durationS })),
+    [lapAbs],
+  );
+
+  // Apply a pending setup-change focus once the matching lap has been
+  // selected and its distance↔time index is built.
+  useEffect(() => {
+    const pending = pendingSetupRef.current;
+    if (!pending || !selected || pending.lap !== selected.lap || !distTime) return;
+    const d = distTime.dAt(pending.tSec);
+    pendingSetupRef.current = null;
+    if (d != null) {
+      setSetupMark({ d, label: pending.label });
+      setCursorDist(d);
+    }
+  }, [selected, distTime]);
+
+  const focusSetupChange = (c: SetupChange) => {
+    if (!selected || selected.lap !== c.lap) {
+      pendingSetupRef.current = { lap: c.lap, tSec: c.tSec, label: c.channelLabel };
+      setSelectedLap(c.lap);
+      return;
+    }
+    if (!distTime) return;
+    const d = distTime.dAt(c.tSec);
+    if (d != null) {
+      setSetupMark({ d, label: c.channelLabel });
+      setCursorDist(d);
+    }
+  };
+
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
@@ -301,7 +375,15 @@ function DebriefPage() {
 
             {/* Track map for this lap */}
             <Section title="Track Map">
-              <TrackMap file={file} refLap={lapRowToLap(selected)} />
+              <TrackMap
+                file={file}
+                refLap={lapRowToLap(selected)}
+                cursorDist={cursorDist}
+                onCursorDistChange={setCursorDist}
+                absMarkers={absMarkers}
+                setupMark={setupMark}
+              />
+              <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
             </Section>
 
             {/* Channel traces vs lap distance */}
@@ -310,8 +392,11 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                cursorDist={cursorDist}
+                onCursorDistChange={setCursorDist}
               />
             </Section>
+
 
 
             {/* ABS hits */}
@@ -366,16 +451,28 @@ function DebriefPage() {
                 <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
               ) : (
                 <ul className="space-y-1 font-mono text-xs">
-                  {lapChanges.map((c) => (
-                    <li key={c.id} className="flex flex-wrap gap-x-3">
-                      <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
-                      <span className="font-bold">{c.channelLabel}</span>
-                      <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
-                    </li>
-                  ))}
+                  {lapChanges.map((c) => {
+                    const active = setupMark?.label === c.channelLabel;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => focusSetupChange(c)}
+                          className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
+                          title="Localizza sulla mappa"
+                        >
+                          <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                          <span className="font-bold">{c.channelLabel}</span>
+                          <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
+                          <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Section>
+
           </div>
         )}
       </PaperPanel>
@@ -407,7 +504,12 @@ function DebriefPage() {
               </TableHeader>
               <TableBody>
                 {setupChanges.map((c, i) => (
-                  <TableRow key={c.id} className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""}`}>
+                  <TableRow
+                    key={c.id}
+                    className={`cursor-pointer border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} hover:bg-race-red/5`}
+                    onClick={() => focusSetupChange(c)}
+                    title="Localizza sulla mappa"
+                  >
                     <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
                     <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
                     <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
@@ -415,6 +517,7 @@ function DebriefPage() {
                     <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
                   </TableRow>
                 ))}
+
               </TableBody>
             </Table>
           )}
@@ -669,11 +772,16 @@ function LapChannelTraces({
   file,
   lap,
   refLap,
+  cursorDist = null,
+  onCursorDistChange,
 }: {
   file: LdFile;
   lap: LapRow;
   refLap: LapRow | null;
+  cursorDist?: number | null;
+  onCursorDistChange?: (d: number | null) => void;
 }) {
+
   const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
   if (!lapCh) {
     return (
@@ -736,7 +844,17 @@ function LapChannelTraces({
             </div>
             <div className="h-32 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                <LineChart
+                  data={merged}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                  onMouseMove={(s: { activeLabel?: number | string }) => {
+                    if (!onCursorDistChange) return;
+                    const v = s?.activeLabel;
+                    const n = typeof v === "number" ? v : v !== undefined ? Number(v) : NaN;
+                    if (Number.isFinite(n)) onCursorDistChange(n);
+                  }}
+                  onMouseLeave={() => onCursorDistChange?.(null)}
+                >
                   <CartesianGrid stroke="hsl(var(--ink) / 0.1)" strokeDasharray="2 2" />
                   <XAxis
                     type="number"
@@ -764,6 +882,15 @@ function LapChannelTraces({
                       name === "yRef" ? `L${refLap?.lap ?? "?"}` : `L${lap.lap}`,
                     ]}
                   />
+                  {cursorDist !== null && Number.isFinite(cursorDist) && (
+                    <ReferenceLine
+                      x={cursorDist}
+                      stroke="hsl(var(--race-red))"
+                      strokeOpacity={0.6}
+                      strokeDasharray="2 2"
+                      ifOverflow="hidden"
+                    />
+                  )}
                   {ref && (
                     <Line
                       type="monotone"
@@ -794,6 +921,7 @@ function LapChannelTraces({
     </div>
   );
 }
+
 
 /* ============ Coherence status banner ============ */
 
@@ -843,5 +971,173 @@ function CoherenceStatus({ coherence }: { coherence: LapCoherence }) {
     </div>
   );
 }
+
+/* ============ Spatial helpers (distance↔time + per-cursor sample) ============ */
+
+interface DistTimeIndex {
+  /** Time (s) for a given lap distance (m). null if out of range. */
+  tAt(d: number): number | null;
+  /** Lap distance (m) for a given absolute time (s). null if outside the lap. */
+  dAt(t: number): number | null;
+}
+
+/** Build a monotonic distance↔time index from the Lap Distance channel over a lap window. */
+function buildDistTimeIndex(file: LdFile, lap: LapRow): DistTimeIndex | null {
+  const lapCh = findChannel(file, ["lap distance", "distance lap", "lap dist"]);
+  if (!lapCh) return null;
+  const freq = lapCh.freq || 1;
+  const i0 = Math.max(0, Math.floor(lap.tStart * freq));
+  const i1 = Math.min(lapCh.values.length, Math.ceil(lap.tEnd * freq));
+  const samples: { t: number; d: number }[] = [];
+  for (let i = i0; i < i1; i++) {
+    const d = lapCh.values[i];
+    if (!Number.isFinite(d) || d < 0) continue;
+    samples.push({ t: i / freq, d });
+  }
+  if (samples.length < 4) return null;
+  const byTime = samples.slice().sort((a, b) => a.t - b.t);
+  const byDist = samples.slice().sort((a, b) => a.d - b.d);
+  const lerp = (
+    arr: { t: number; d: number }[],
+    key: "t" | "d",
+    target: number,
+    other: "t" | "d",
+  ): number | null => {
+    if (arr.length === 0) return null;
+    if (target <= arr[0][key]) return arr[0][other];
+    if (target >= arr[arr.length - 1][key]) return arr[arr.length - 1][other];
+    let lo = 0;
+    let hi = arr.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid][key] <= target) lo = mid;
+      else hi = mid;
+    }
+    const a = arr[lo];
+    const b = arr[hi];
+    const span = b[key] - a[key];
+    const tt = span > 0 ? (target - a[key]) / span : 0;
+    return a[other] + (b[other] - a[other]) * tt;
+  };
+  return {
+    tAt: (d: number) => (Number.isFinite(d) ? lerp(byDist, "d", d, "t") : null),
+    dAt: (t: number) => (Number.isFinite(t) ? lerp(byTime, "t", t, "d") : null),
+  };
+}
+
+interface CursorSample {
+  /** Generic channel readouts (speed/throttle/brake/rpm/steer) at the cursor. */
+  channels: { label: string; unit: string; value: number; decimals: number }[];
+  brakes: { fl?: number; fr?: number; rl?: number; rr?: number };
+  tyres: { fl?: number; fr?: number; rl?: number; rr?: number };
+}
+
+function sampleChan(ch: Channel | undefined, t: number): number | undefined {
+  if (!ch) return undefined;
+  const freq = ch.freq || 1;
+  const i = Math.max(0, Math.min(ch.values.length - 1, Math.round(t * freq)));
+  const v = ch.values[i];
+  if (!Number.isFinite(v) || v === -1) return undefined;
+  return v;
+}
+
+function sampleAtTime(file: LdFile, t: number): CursorSample {
+  const grab = (aliases: string[]) => sampleChan(findChannel(file, aliases), t);
+  const speed = grab(["ground speed", "speed"]);
+  const rpm = grab(["rpm", "engine rpm"]);
+  const aps = grab(["ecu aps", "ath", "aps", "throttle"]);
+  const pbf = grab(["log pbrake f", "pbrake f", "brake pressure front"]);
+  const pbr = grab(["log pbrake r", "pbrake r", "brake pressure rear"]);
+  const steer = grab(["log asteer", "asteer", "steering angle", "steer"]);
+
+  const channels: CursorSample["channels"] = [];
+  const push = (label: string, unit: string, v: number | undefined, decimals = 1) => {
+    if (v !== undefined && Number.isFinite(v)) channels.push({ label, unit, value: v, decimals });
+  };
+  push("v", "km/h", speed, 1);
+  push("RPM", "", rpm, 0);
+  push("Throttle", "%", aps, 1);
+  push("Brake F", "bar", pbf, 1);
+  push("Brake R", "bar", pbr, 1);
+  push("Steer", "°", steer, 1);
+
+  const corner = (base: string) => ({
+    fl: sampleChan(findChannel(file, [`${base} fl`]), t),
+    fr: sampleChan(findChannel(file, [`${base} fr`]), t),
+    rl: sampleChan(findChannel(file, [`${base} rl`]), t),
+    rr: sampleChan(findChannel(file, [`${base} rr`]), t),
+  });
+  return {
+    channels,
+    brakes: corner("log brkdisctemp"),
+    tyres: corner("tpms temp"),
+  };
+}
+
+/* ============ Cursor info panel ============ */
+
+function CursorInfoPanel({
+  cursorDist,
+  sample,
+}: {
+  cursorDist: number | null;
+  sample: CursorSample | null;
+}) {
+  if (cursorDist == null || !sample) {
+    return (
+      <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+        Passa il mouse su mappa o tracce per leggere i valori puntuali del giro.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 space-y-2 border border-ink/20 bg-card/40 p-3 font-mono">
+      <div className="flex flex-wrap items-baseline gap-x-3 text-[10px] uppercase tracking-widest">
+        <span className="text-race-red">cursore</span>
+        <span className="tabular-nums text-foreground">{Math.round(cursorDist)} m</span>
+      </div>
+      {sample.channels.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {sample.channels.map((c) => (
+            <span key={c.label} className="tabular-nums">
+              <span className="text-muted-foreground">{c.label}</span>{" "}
+              <b>{c.value.toFixed(c.decimals)}</b>
+              {c.unit && <span className="text-muted-foreground"> {c.unit}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      <CornerReadout label="Brakes (°C)" c={sample.brakes} />
+      <CornerReadout label="Tyres (°C)" c={sample.tyres} />
+    </div>
+  );
+}
+
+function CornerReadout({
+  label,
+  c,
+}: {
+  label: string;
+  c: { fl?: number; fr?: number; rl?: number; rr?: number };
+}) {
+  const has = c.fl !== undefined || c.fr !== undefined || c.rl !== undefined || c.rr !== undefined;
+  if (!has) return null;
+  const cell = (v: number | undefined) =>
+    v === undefined ? <span className="text-muted-foreground">—</span> : <b>{v.toFixed(0)}</b>;
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-3 text-[11px]">
+      <span className="self-center text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
+      <div className="grid grid-cols-4 gap-x-2 tabular-nums">
+        <span>FL {cell(c.fl)}</span>
+        <span>FR {cell(c.fr)}</span>
+        <span>RL {cell(c.rl)}</span>
+        <span>RR {cell(c.rr)}</span>
+      </div>
+    </div>
+  );
+}
+
 
 
