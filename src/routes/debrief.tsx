@@ -288,6 +288,7 @@ function DebriefPage() {
                 file={file}
                 lap={selected}
                 refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                verified={verified}
               />
             </Section>
 
