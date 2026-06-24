@@ -184,6 +184,11 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
   opts.onProgress?.(92, "Segmentazione giri");
   const laps = segmentLaps(channels);
 
+  // B3: for per-lap reset channels (Lap Distance, Lap Time) the raw series
+  // may span multiple laps; recompute stats per-lap so max reflects a single
+  // lap rather than a concatenated/cumulative series.
+  recomputePerLapStats(channels);
+
   const meta: SessionMeta = { device, date, time, car, track };
 
   opts.onProgress?.(100, "Completato");
@@ -194,4 +199,53 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
     laps,
     byteLength: buf.byteLength,
   };
+}
+
+/**
+ * Channels where negative values (notably -1) are sentinel "no data" markers
+ * and must be excluded from min/max/avg. Excludes channels where negatives
+ * are physically legitimate (accel, yaw, gain/loss, steering, temperatures).
+ */
+function isSentinelFiltered(name: string): boolean {
+  const n = name.toLowerCase();
+  if (/(yaw|acc|accel|gain|loss|steer|temp|gyro|gradient|delta)/.test(n)) return false;
+  return /(distance|time|count|number|busy|lap\s*speed|fuel|odo)/.test(n);
+}
+
+/** Recompute min/max/avg per-lap-segment for channels that reset each lap. */
+function recomputePerLapStats(channels: Channel[]) {
+  const perLapNames = ["lap distance", "lap time"];
+  for (const c of channels) {
+    if (c.empty || c.nSamples === 0) continue;
+    if (!perLapNames.includes(c.name.toLowerCase())) continue;
+
+    // Detect reset boundaries: a sharp drop relative to the previous sample.
+    // Threshold of 50 covers both metres (Lap Distance) and seconds (Lap Time).
+    let segStart = 0;
+    let bestMax = -Infinity, bestMin = Infinity, sum = 0, cnt = 0;
+    const flush = (end: number) => {
+      let segMax = -Infinity, segMin = Infinity;
+      for (let j = segStart; j < end; j++) {
+        const v = c.values[j];
+        if (v <= -1) continue;
+        if (v > segMax) segMax = v;
+        if (v < segMin) segMin = v;
+        sum += v; cnt++;
+      }
+      if (segMax > bestMax) bestMax = segMax;
+      if (segMin < bestMin) bestMin = segMin;
+    };
+    for (let i = 1; i < c.nSamples; i++) {
+      if (c.values[i - 1] - c.values[i] > 50) {
+        flush(i);
+        segStart = i;
+      }
+    }
+    flush(c.nSamples);
+    if (cnt > 0) {
+      c.min = bestMin;
+      c.max = bestMax;
+      c.avg = sum / cnt;
+    }
+  }
 }
