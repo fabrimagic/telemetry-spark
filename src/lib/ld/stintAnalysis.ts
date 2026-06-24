@@ -48,6 +48,8 @@ export interface LapRow {
   hasAlarm: boolean;
   isOutLap: boolean;
   isFastest: boolean;
+  /** True when lap duration falls inside the session-relative valid band (≈ 70–140% of median). */
+  isValidLap: boolean;
   brakes: LapTempCorner;
   tyres: LapTempCorner;
 }
