@@ -2,7 +2,8 @@
 // Pure function: takes ArrayBuffer + progress callback, returns LdFile (without fileName).
 
 import type { Channel, LdFile, SessionMeta } from "./types";
-import { getOverride } from "./channelOverrides";
+import { getOverride, SCLU_RATE_CHANNELS, isStuckOnMultiplesOf2778 } from "./channelOverrides";
+
 import { categorize } from "./categorize";
 import { segmentLaps } from "./laps";
 
