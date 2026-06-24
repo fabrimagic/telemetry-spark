@@ -10,6 +10,7 @@ import {
   type AbsHit,
 } from "@/lib/ld/stintAnalysis";
 import { norm } from "@/lib/ld/sessionDebrief";
+import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
 import type { Channel, Lap, LdFile } from "@/lib/ld/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
