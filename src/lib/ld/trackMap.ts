@@ -141,7 +141,7 @@ export function buildTrackMap(file: LdFile, refLap?: Lap | null): TrackMap | nul
 
   // 2) Sample lat/lon at a fixed 5 Hz cadence across the lap window. Each
   //    channel is indexed at its own native frequency: i = round(t * freq).
-  const lapDist = findChannel(file.channels, "lap distance");
+  const lapDist = resolveChannel(file.channels, "lapDistance");
   const ldFreq = lapDist?.freq ?? 0;
   const ldLen = lapDist?.values.length ?? 0;
 
