@@ -7,7 +7,25 @@
 // only sample statistics (mean, std, CV) and per-half deltas. The engineer
 // reads the data and decides; the engine does not diagnose.
 
-import { useMemo } from "react";
+// Radar (Part 2) — overlays first-half vs second-half of the stint, one
+// metric at a time, with one axis per corner. Each axis is normalised
+// independently on its own range (combining the two halves of that zone) so
+// the chart is readable even when corners have very different physical
+// scales. Consequence (declared in the panel): the radar shows the RELATIVE
+// shape of the first-vs-second comparison, NOT absolute values; the area
+// and the distance from the centre are NOT physical quantities. Exact
+// values remain available in the tooltip and in the table below.
+
+import { useMemo, useState } from "react";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import type { LdFile } from "@/lib/ld/types";
 import type { LapRow, AbsHit } from "@/lib/ld/stintAnalysis";
 import {
@@ -24,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 function fmt(n: number | undefined | null, d = 1): string {
   if (n === undefined || n === null || !Number.isFinite(n)) return "—";
@@ -69,6 +88,259 @@ function stdClass(d: MetricDrift): string {
   return d.deltaStd > 0 ? "text-race-red" : "";
 }
 
+/* ============================ Radar (Part 2) ============================ */
+
+type RadarMetricKey = "vMin" | "brakePointDist" | "throttleReopenDist";
+
+interface RadarMetricSpec {
+  key: RadarMetricKey;
+  label: string;
+  unit: string;
+  digits: number;
+}
+
+const RADAR_METRICS: RadarMetricSpec[] = [
+  { key: "vMin", label: "v min", unit: "km/h", digits: 1 },
+  { key: "brakePointDist", label: "punto frenata", unit: "m", digits: 0 },
+  { key: "throttleReopenDist", label: "riapertura gas", unit: "m", digits: 0 },
+];
+
+function pickMetric(d: ZoneDrift, key: RadarMetricKey): MetricDrift {
+  if (key === "vMin") return d.vMin;
+  if (key === "brakePointDist") return d.brakePointDist;
+  return d.throttleReopenDist;
+}
+
+interface RadarDatum {
+  zone: string;
+  first: number | null;
+  second: number | null;
+  firstReal: number | undefined;
+  secondReal: number | undefined;
+  delta: number | undefined;
+  available: boolean;
+}
+
+/** Per-axis range = [min, max] of (first.mean, second.mean) with a small
+ *  symmetric padding so values never collapse on the rim/centre. Both halves
+ *  are projected to [0,1] in that axis. Returns null/undefined when the
+ *  metric is unavailable for the zone (vertex falls to 0.5 with "n/d" label). */
+function buildRadarData(drift: ZoneDrift[], key: RadarMetricKey): RadarDatum[] {
+  return drift.map((d) => {
+    const m = pickMetric(d, key);
+    if (!m.available || !Number.isFinite(m.first.mean) || !Number.isFinite(m.second.mean)) {
+      return {
+        zone: d.label,
+        first: null,
+        second: null,
+        firstReal: Number.isFinite(m.first.mean) ? m.first.mean : undefined,
+        secondReal: Number.isFinite(m.second.mean) ? m.second.mean : undefined,
+        delta: undefined,
+        available: false,
+      };
+    }
+    const a = m.first.mean;
+    const b = m.second.mean;
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    let span = hi - lo;
+    if (span === 0) span = Math.max(1e-6, Math.abs(hi) * 0.05 + 1e-6);
+    const pad = span * 0.25;
+    const axisLo = lo - pad;
+    const axisHi = hi + pad;
+    const denom = axisHi - axisLo;
+    const proj = (v: number) => (denom > 0 ? (v - axisLo) / denom : 0.5);
+    return {
+      zone: d.label,
+      first: proj(a),
+      second: proj(b),
+      firstReal: a,
+      secondReal: b,
+      delta: b - a,
+      available: true,
+    };
+  });
+}
+
+interface RadarTooltipPayloadItem {
+  payload?: RadarDatum;
+  name?: string;
+}
+
+function makeRadarTooltip(spec: RadarMetricSpec) {
+  const TooltipContent = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: RadarTooltipPayloadItem[];
+    label?: string;
+  }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const p = payload[0]?.payload;
+    if (!p) return null;
+    const fmtReal = (v: number | undefined) =>
+      v === undefined || !Number.isFinite(v) ? "n/d" : `${v.toFixed(spec.digits)} ${spec.unit}`;
+    return (
+      <div
+        style={{
+          background: "hsl(var(--card))",
+          border: "1px solid hsl(var(--ink) / 0.4)",
+          borderRadius: 0,
+          fontFamily: "var(--font-mono, monospace)",
+          fontSize: 11,
+          padding: "6px 8px",
+          color: "hsl(var(--ink))",
+        }}
+      >
+        <div className="uppercase tracking-widest text-muted-foreground">
+          {label ?? p.zone} · {spec.label}
+        </div>
+        <div>1ª metà: <span className="tabular-nums">{fmtReal(p.firstReal)}</span></div>
+        <div>2ª metà: <span className="tabular-nums">{fmtReal(p.secondReal)}</span></div>
+        <div>
+          Δ:{" "}
+          <span className="tabular-nums">
+            {p.delta === undefined || !Number.isFinite(p.delta)
+              ? "n/d"
+              : `${p.delta > 0 ? "+" : ""}${p.delta.toFixed(spec.digits)} ${spec.unit}`}
+          </span>
+        </div>
+        {!p.available && (
+          <div className="text-muted-foreground">dato non disponibile in una delle metà</div>
+        )}
+      </div>
+    );
+  };
+  return TooltipContent;
+}
+
+function DriftRadar({
+  drift,
+  spec,
+}: {
+  drift: ZoneDrift[];
+  spec: RadarMetricSpec;
+}) {
+  const data = useMemo(() => buildRadarData(drift, spec.key), [drift, spec.key]);
+  // For unavailable vertices, push to centre (0) instead of mid so the
+  // missing data is visually evident without inventing a value.
+  const chartData = data.map((d) => ({
+    ...d,
+    first: d.available ? d.first : 0,
+    second: d.available ? d.second : 0,
+  }));
+
+  return (
+    <div className="space-y-2">
+      <div className="h-[320px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={chartData} outerRadius="75%">
+            <PolarGrid stroke="hsl(var(--ink) / 0.2)" />
+            <PolarAngleAxis
+              dataKey="zone"
+              tick={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, fill: "hsl(var(--ink))" }}
+            />
+            <PolarRadiusAxis
+              domain={[0, 1]}
+              tick={false}
+              axisLine={false}
+            />
+            <Radar
+              name="1ª metà"
+              dataKey="first"
+              stroke="#1e6f8a"
+              fill="#1e6f8a"
+              fillOpacity={0.25}
+              isAnimationActive={false}
+            />
+            <Radar
+              name="2ª metà"
+              dataKey="second"
+              stroke="hsl(var(--race-red))"
+              fill="hsl(var(--race-red))"
+              fillOpacity={0.25}
+              isAnimationActive={false}
+            />
+            <Tooltip content={makeRadarTooltip(spec)} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 font-mono text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3" style={{ background: "#1e6f8a" }} /> 1ª metà
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3" style={{ background: "hsl(var(--race-red))" }} /> 2ª metà
+        </span>
+        <span className="uppercase tracking-widest">
+          Ogni asse è normalizzato sul proprio range (1ª + 2ª metà di quella zona) + padding 25%.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Fallback for stints with < 3 zones — a radar with 1–2 axes is degenerate.
+ *  Per-zone side-by-side bars with real values, declared as such. */
+function DriftBarsFallback({
+  drift,
+  spec,
+}: {
+  drift: ZoneDrift[];
+  spec: RadarMetricSpec;
+}) {
+  const data = useMemo(() => buildRadarData(drift, spec.key), [drift, spec.key]);
+  // Per-zone axis range for the bar width (same per-axis normalisation).
+  return (
+    <div className="space-y-2 border border-ink/15 p-3">
+      <p className="font-mono text-[10px] text-muted-foreground">
+        Meno di 3 zone disponibili: il radar è degenere, fallback a barre
+        affiancate (1ª vs 2ª metà) per zona, con normalizzazione per-asse
+        (range locale + padding).
+      </p>
+      <div className="space-y-2">
+        {data.map((d) => {
+          const firstPct = (d.first ?? 0) * 100;
+          const secondPct = (d.second ?? 0) * 100;
+          return (
+            <div key={d.zone} className="font-mono text-[11px] text-ink">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="uppercase tracking-widest text-muted-foreground">{d.zone}</span>
+                <span className="tabular-nums">
+                  {d.firstReal !== undefined ? d.firstReal.toFixed(spec.digits) : "n/d"} →{" "}
+                  {d.secondReal !== undefined ? d.secondReal.toFixed(spec.digits) : "n/d"}{" "}
+                  {spec.unit}
+                  {d.delta !== undefined && Number.isFinite(d.delta) && (
+                    <>
+                      {" · Δ "}
+                      <span className={d.delta < 0 ? "text-race-red" : ""}>
+                        {d.delta > 0 ? "+" : ""}
+                        {d.delta.toFixed(spec.digits)}
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <div className="h-2 w-full border border-ink/20 bg-card">
+                  <div className="h-full" style={{ width: `${firstPct}%`, background: "#1e6f8a" }} />
+                </div>
+                <div className="h-2 w-full border border-ink/20 bg-card">
+                  <div className="h-full" style={{ width: `${secondPct}%`, background: "hsl(var(--race-red))" }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+
 export function DrivingConsistencyPanel({
   file,
   laps,
@@ -105,6 +377,14 @@ export function DrivingConsistencyPanel({
   const drift = result.drift;
   const summary = result.summary;
   const showThrottle = result.hasThrottle;
+
+  const availableRadarMetrics = useMemo<RadarMetricSpec[]>(
+    () => RADAR_METRICS.filter((m) => m.key !== "throttleReopenDist" || showThrottle),
+    [showThrottle],
+  );
+  const [radarMetricKey, setRadarMetricKey] = useState<RadarMetricKey>("vMin");
+  const radarSpec =
+    availableRadarMetrics.find((m) => m.key === radarMetricKey) ?? availableRadarMetrics[0];
 
   return (
     <div className="space-y-6">
@@ -203,7 +483,41 @@ export function DrivingConsistencyPanel({
                 convenzione: con numero dispari il giro centrale va nella prima metà.
               </p>
             )}
+
+            {/* Radar (or fallback bars) — overlay 1ª vs 2ª metà, one metric at a time */}
+            {radarSpec && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h5 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Confronto 1ª vs 2ª metà — assi = zone-curva
+                  </h5>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      metrica:
+                    </span>
+                    {availableRadarMetrics.map((m) => (
+                      <Button
+                        key={m.key}
+                        size="sm"
+                        variant={radarMetricKey === m.key ? "default" : "outline"}
+                        className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                        onClick={() => setRadarMetricKey(m.key)}
+                      >
+                        {m.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {drift.length >= 3 ? (
+                  <DriftRadar drift={drift} spec={radarSpec} />
+                ) : (
+                  <DriftBarsFallback drift={drift} spec={radarSpec} />
+                )}
+              </div>
+            )}
+
             <div className="overflow-x-auto border border-ink/20">
+
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-ink/30">
@@ -284,9 +598,17 @@ export function DrivingConsistencyPanel({
         Tutte le grandezze derivano da canali misurati e dalle zone ancorate al
         giro di riferimento (L{result.refLap?.lap}). Gli indici di dispersione
         (σ, CV) sono statistiche campionarie; la deriva prima/seconda metà è
-        un'osservazione dei dati e non una diagnosi. Il giudizio resta
-        all'ingegnere.
+        un'osservazione dei dati e non una diagnosi. Il{" "}
+        <span className="font-bold">radar</span> normalizza{" "}
+        <span className="font-bold">ogni asse (zona) indipendentemente</span> sul
+        range locale dei due valori (1ª + 2ª metà di quella zona) con un padding
+        del 25%: mostra quindi la <span className="font-bold">forma relativa</span>{" "}
+        del confronto, non valori assoluti. L'area racchiusa e la distanza dal
+        centro <span className="font-bold">non</span> sono grandezze fisiche; i
+        valori reali restano nel tooltip e nella tabella sottostante. Il
+        giudizio resta all'ingegnere.
       </p>
+
     </div>
   );
 }
