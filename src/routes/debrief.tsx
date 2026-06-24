@@ -16,6 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrackMap, type TrackAbsMarker } from "@/components/telemetry/TrackMap";
 import { TyreEvolutionPanel } from "@/components/telemetry/TyreEvolutionPanel";
+import { BrakeManagementPanel } from "@/components/telemetry/BrakeManagementPanel";
+import { EngineHealthPanel } from "@/components/telemetry/EngineHealthPanel";
+
 import {
   Table,
   TableBody,
@@ -341,6 +344,22 @@ function DebriefPage() {
             <TyreEvolutionPanel file={file} laps={laps} />
           </PaperPanel>
         </div>
+
+        {/* ---------- Brake Management (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Brake Management">
+            <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+          </PaperPanel>
+        </div>
+
+        {/* ---------- Engine Health (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Management" title="Engine Health">
+            <EngineHealthPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+          </PaperPanel>
+        </div>
+
+
 
         {/* ---------- Lap selector / drill-down ---------- */}
         <div className="col-span-12 min-w-0">

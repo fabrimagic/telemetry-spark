@@ -67,7 +67,10 @@ export type LogicalKey =
   | "engineCoolantTemp"
   | "engineOilTemp"
   | "engineOilPressure"
+  | "engineWaterPressure"
+  | "engineRailPressure"
   | "fuelPressure"
+
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
   | "tyreTemp.fl"      | "tyreTemp.fr"      | "tyreTemp.rl"      | "tyreTemp.rr"
@@ -217,22 +220,37 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
 
   // ---- Engine extras ----
   engineCoolantTemp: [
-    eq("ecu tcool"), eq("tcool"),
+    eq("ecu tmot"), eq("ecu tcool"), eq("tmot"), eq("tcool"), eq("twater"),
     eq("coolant temp"), eq("coolant temperature"),
-    eq("water temp"),
+    eq("water temp"), eq("water temperature"),
+    inc("coolant temp"), inc("water temp"),
   ],
   engineOilTemp: [
     eq("ecu toil"), eq("toil"),
     eq("oil temp"), eq("oil temperature"),
+    inc("oil temp"),
   ],
   engineOilPressure: [
     eq("ecu poil"), eq("poil"),
     eq("oil pressure"), eq("oil press"),
+    inc("oil pressure"), inc("oil press"),
+  ],
+  engineWaterPressure: [
+    eq("ecu pwat"), eq("pwat"), eq("pwater"),
+    eq("water pressure"), eq("water press"), eq("coolant pressure"),
+    inc("water pressure"),
+  ],
+  engineRailPressure: [
+    eq("ecu prail"), eq("prail"),
+    eq("rail pressure"), eq("fuel rail pressure"),
+    inc("rail pressure"),
   ],
   fuelPressure: [
     eq("ecu pfuel"), eq("pfuel"),
     eq("fuel pressure"), eq("fuel press"),
+    inc("fuel pressure"),
   ],
+
 
   // ---- Per-wheel corner channels ----
   "brakeDiscTemp.fl": BRAKE_TEMP_CORNERS.fl,
