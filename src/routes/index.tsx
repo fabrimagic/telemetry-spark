@@ -439,7 +439,6 @@ function SessionRibbon({
           </div>
         </div>
 
-        </div>
 
         {/* bottom hazard sliver */}
         <div className="hazard-edge h-1 w-full" />
