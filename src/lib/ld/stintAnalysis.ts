@@ -390,7 +390,18 @@ export function buildStintAnalysis(
     return { ...row, isValidLap: _durationValid && movementOk };
   });
 
-  // Fastest is taken only among combined-valid laps.
+  // ----- Lap timing: try to recover precise per-lap times from "lap time prev" -----
+  const timing = buildLapTiming(file);
+  if (timing.timingVerified) {
+    for (const row of lapRows) {
+      const precise = timing.perLap.get(row.lap);
+      if (precise !== undefined && Number.isFinite(precise) && precise > 0) {
+        row.durationS = precise;
+      }
+    }
+  }
+
+  // Fastest is taken only among combined-valid laps (uses precise times when verified).
   let bestIdx = -1;
   let bestT = Infinity;
   lapRows.forEach((r, idx) => {
