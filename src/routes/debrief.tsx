@@ -141,6 +141,18 @@ function DebriefPage() {
 
   const [selectedLap, setSelectedLap] = useState<number | "all">("all");
   const [lapFilter, setLapFilter] = useState<"all" | "valid" | "invalid">("all");
+  const [cursorDist, setCursorDist] = useState<number | null>(null);
+  const [setupMark, setSetupMark] = useState<{ d: number; label: string } | null>(null);
+  /** Pending setup-change focus: requested from the global timeline before the
+   *  target lap drill-down has mounted; consumed by the effect below. */
+  const pendingSetupRef = useRef<{ lap: number; tSec: number; label: string } | null>(null);
+
+  // Reset cursor / marker when the active lap changes.
+  useEffect(() => {
+    setCursorDist(null);
+    setSetupMark(null);
+  }, [selectedLap]);
+
 
   if (!file || !analysis) {
     return (
