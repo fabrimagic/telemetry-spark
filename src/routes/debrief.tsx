@@ -113,21 +113,21 @@ function PaperPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="paper-card flex h-full min-w-0 flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="min-w-0">
-          <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-race-red">
+    <section className="paper-card">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/30 px-5 py-4">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
             ◉ {eyebrow}
           </div>
-          <h2 className="truncate font-display text-xl leading-none tracking-wider">{title}</h2>
+          <h2 className="font-display text-3xl leading-none tracking-wider">{title}</h2>
         </div>
         {meta && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {meta.map((m) => (
               <Badge
                 key={m.k}
                 variant="outline"
-                className="rounded-none border-border font-mono text-[9px] uppercase tracking-widest"
+                className="rounded-none border-ink font-mono text-[10px] uppercase tracking-widest"
               >
                 {m.k} · {m.v}
               </Badge>
@@ -135,7 +135,7 @@ function PaperPanel({
           </div>
         )}
       </header>
-      <div className="min-w-0 flex-1 overflow-x-hidden p-3">{children}</div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
@@ -167,14 +167,14 @@ function DebriefPage() {
 
   if (!file || !analysis) {
     return (
-      <div className="w-full min-w-0 space-y-3 px-4 py-5 font-mono">
-        <header className="border-b border-border pb-2">
-          <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-race-red">
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8 font-mono">
+        <header className="border-b border-ink/30 pb-3">
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
             ◉ Analysis
           </div>
-          <h1 className="font-display text-2xl leading-none tracking-wider">Stint Analysis</h1>
+          <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
         </header>
-        <div className="paper-card p-3 text-sm text-muted-foreground">
+        <div className="paper-card p-6 text-sm text-muted-foreground">
           Nessun file caricato. Vai su{" "}
           <Link to="/" className="text-race-red underline-offset-4 hover:underline">
             Overview
@@ -249,17 +249,17 @@ function DebriefPage() {
 
 
   return (
-    <div className="w-full min-w-0 space-y-3 px-3 py-4 2xl:px-6">
-      <header className="border-b border-border pb-2 font-mono">
-        <div className="text-[9px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
-        <h1 className="font-display text-2xl leading-none tracking-wider">Stint Analysis</h1>
-        <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6 px-6 py-8">
+      <header className="border-b border-ink/30 pb-3 font-mono">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-race-red">◉ Analysis</div>
+        <h1 className="font-display text-3xl leading-none tracking-wider">Stint Analysis</h1>
+        <div className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
           File · {file.fileName} · {laps.length} giri
         </div>
         <CoherenceStatus coherence={coherence} />
       </header>
 
-      <div className="grid grid-cols-12 gap-3">
+      <div className="grid grid-cols-12 gap-6">
         {/* ---------- Conditions ribbon ---------- */}
         <div className="col-span-12 min-w-0 xl:col-span-4">
           <PaperPanel eyebrow="Session" title="Conditions">
@@ -351,14 +351,15 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
-        {/* ---------- Tyre Evolution + Brake Management — share a row on wide screens ---------- */}
-        <div className="col-span-12 min-w-0 2xl:col-span-6">
+        {/* ---------- Tyre Evolution (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Management" title="Tyre Evolution">
             <TyreEvolutionPanel file={file} laps={laps} />
           </PaperPanel>
         </div>
 
-        <div className="col-span-12 min-w-0 2xl:col-span-6">
+        {/* ---------- Brake Management (session-level) ---------- */}
+        <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Management" title="Brake Management">
             <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
           </PaperPanel>
@@ -565,14 +566,15 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
-        {/* ---------- Thermal Balance + Engine Usage — share a row on wide screens ---------- */}
-        <div className="col-span-12 min-w-0 2xl:col-span-6">
+        {/* ---------- Thermal Balance (stint aggregate, setup-oriented read) ---------- */}
+        <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Setup" title="Thermal Balance">
             <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
           </PaperPanel>
         </div>
 
-        <div className="col-span-12 min-w-0 2xl:col-span-6">
+        {/* ---------- Engine Usage (stint aggregate, RPM-based) ---------- */}
+        <div className="col-span-12 min-w-0">
           <PaperPanel eyebrow="Engine" title="Engine Usage">
             <EngineUsagePanel file={file} laps={laps} />
           </PaperPanel>

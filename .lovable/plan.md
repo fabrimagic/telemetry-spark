@@ -1,83 +1,129 @@
-## Obiettivo
+# MoTeC Telemetry Analyzer — Build Plan
 
-Riorganizzare l'intera UI come griglia densa, in dark theme, con tutti i grafici e i testi leggibili e SENZA mai scrolling orizzontale (né a livello pagina, né dentro card/tabelle/grafici).
+A fully client-side SPA that parses MoTeC `.ld` (+ optional `.ldx`) files in a Web Worker and visualizes every channel in an interactive dashboard. No backend, no uploads.
 
-## Strategia in 4 fasi
+## 1. Stack & scaffolding
 
-### 1. Dark theme nel design system
-Lavoro solo su `src/styles.css`, mantenendo i token semantici già esistenti (`--background`, `--card`, `--ink`, `--race-red`, `--hazard`, …). Sposto la palette "pit-wall" attuale (bone su ink) nella sua versione dark di default:
+- Already on TanStack Start + React 19 + Vite + Tailwind v4 + shadcn/ui (keep as-is).
+- Add: `recharts` for charts. (Workers + typed arrays are native — no extra deps.)
+- Single route `/` (replace placeholder `src/routes/index.tsx`) hosting the whole dashboard.
+- All parsing in a dedicated Web Worker — UI thread only renders.
 
-- `--background`: carbon scuro (oklch ~0.13)
-- `--card`: leggermente più chiaro del background (~0.17), con `--border` ad alto contrasto
-- `--foreground` / `--ink`: bone chiaro (~0.95) per testo principale
-- `--muted-foreground` ricalibrato a contrasto WCAG AA (~0.72)
-- Accenti race-red e hazard restano (sono già leggibili su scuro)
-- Recharts: aggiorno i pochi colori hard-coded (es. `#1e6f8a`) verso varianti più luminose adatte allo scuro, mantenendo la semantica (cool-blue → race-red per i confronti)
-
-Nessun componente nuovo: i pannelli usano già token semantici, quindi cambiano colore "gratis".
-
-### 2. Anti-scroll orizzontale: regole strutturali
-Applicate in modo uniforme a tutti i pannelli telemetry:
-
-- `min-w-0` su ogni contenitore flex/grid che ospita testo o tabelle (oggi spesso mancante → causa overflow)
-- `overflow-x-auto` SOSTITUITO da `overflow-x-hidden` + tabelle responsive: header sticky compatti, font ridotto (`text-[10px]`), colonne meno critiche nascoste sotto `xl:` con `hidden xl:table-cell`
-- Tutti gli SVG custom (box plot, gauge, radar, heatmap brake) racchiusi in un wrapper `w-full` con `<svg viewBox=... preserveAspectRatio="xMidYMid meet" className="block w-full h-auto">` invece di width fissa: scalano dentro la cella della griglia senza creare overflow
-- Recharts: già `ResponsiveContainer width="100%"`, ma riduco le altezze fisse (320 → 220) per migliorare densità
-
-### 3. Layout a griglia delle pagine
-
-**`/debrief`** — oggi i pannelli sono impilati verticali a tutta larghezza. Diventa una griglia bento responsive:
+## 2. File layout
 
 ```text
-┌─────────────────────────────────────────────────────┐
-│  SessionBar (full)                                  │
-├──────────────────┬──────────────────────────────────┤
-│  ToolsetSummary  │  Session/Weather summary cards   │
-│  (sticky)        ├──────────────┬───────────────────┤
-│                  │ EngineUsage  │ EngineHealth      │
-│                  ├──────────────┴───────────────────┤
-│                  │ BrakingSignature (heatmap full)  │
-│                  ├──────────────────────────────────┤
-│                  │ DrivingConsistency               │
-│                  ├──────────────┬───────────────────┤
-│                  │ Thermal      │ TyreEvolution     │
-│                  ├──────────────┴───────────────────┤
-│                  │ WeatherEvolution                 │
-│                  ├──────────────────────────────────┤
-│                  │ BrakeManagement                  │
-└──────────────────┴──────────────────────────────────┘
+src/
+  routes/index.tsx                  // dashboard shell
+  workers/ldParser.worker.ts        // .ld binary parser (runs off main thread)
+  lib/ld/
+    types.ts                        // Channel, LdFile, Lap, SessionMeta
+    parseLd.ts                      // pure parser used inside the worker
+    parseLdx.ts                     // XML metadata parser (main thread, tiny)
+    channelOverrides.ts             // special-conversion lookup table
+    categorize.ts                   // name-prefix → category
+    laps.ts                         // lap segmentation (Lap Number / Lap Distance resets)
+    downsample.ts                   // LTTB-style visual decimation
+    interpolate.ts                  // resample channels onto Lap Distance axis
+  components/telemetry/
+    FileDropzone.tsx
+    SessionBar.tsx                  // car/track/date/device/#channels/#laps + mode + ref lap
+    ChannelSidebar.tsx              // grouped, searchable, checkbox list + badges
+    ChartArea.tsx                   // multi-channel chart container, X axis switch
+    MultiChannelChart.tsx           // Recharts LineChart, synced cursor, brush
+    LapCompareChart.tsx             // one line per lap for a single channel
+    ChannelTable.tsx                // min/max/avg/n/freq/unit per channel
+    GpsTrack.tsx                    // canvas trace coloured by speed, synced cursor
+    CursorContext.tsx               // shared hover x across charts
+  hooks/
+    useLdLoader.ts                  // wraps worker, exposes progress + result
+    useTelemetryStore.ts            // zustand-free: small useReducer/context for selections
 ```
 
-Implementazione: `grid grid-cols-12 gap-3` al top, ogni pannello dichiara la sua span (es. `col-span-12 xl:col-span-6` per i panel "metà", `col-span-12` per quelli larghi). Sidebar `ToolsetSummary` `col-span-12 lg:col-span-3 lg:sticky lg:top-4`. Niente container `max-w-7xl` che lascia spazio sprecato — uso tutta la viewport con `px-4`.
+## 3. Parser (exact spec — no invented offsets)
 
-**`/`** (landing) — passa a hero + griglia 3-colonne di feature card sotto, compatta in una sola schermata su desktop.
+Header (absolute, LE):
+- `0x08 u32` → first channel descriptor ptr
+- `0x0C u32` → data block start ptr
+- `0x4A char[8]` device, `0x5E char[16]` date, `0x7C char[16]` time
+- Car/track strings: try expected offsets; if empty, scan header for printable ASCII tokens and surface what is found, otherwise omit.
 
-**`/docs`** — layout a 2 colonne: TOC sticky a sinistra (`col-span-3`), contenuto a destra (`col-span-9`), tipografia ridotta e densa.
+Descriptor (relative):
+- `+0 u32 prev`, `+4 u32 next`, `+8 u32 data_ptr`, `+12 u32 n_samples`
+- `+18 u16 dtype`, `+20 u16 size`, `+22 u16 freq`
+- `+24 i16 shift`, `+26 i16 mult`, `+28 i16 scale`, `+30 i16 dec`
+- `+32 char[32] name`, `+64 char[12] unit`
+- Walk via `next_ptr`; stop on 0 or a ptr already visited (cycle guard).
 
-### 4. Densità testuale uniforme
+Raw samples:
+- `size==4` → `Int32Array` view; else `Int16Array` view (LE). Never float32.
 
-- Font monospace per dati portato a `text-[11px]` baseline (oggi è misto 11/12)
-- Padding card `p-3` invece di `p-4`/`p-5`
-- Gap fra sezioni `gap-3` invece di `space-y-5`/`space-y-6`
-- Header pannello in una riga: titolo + selettori metrica sulla stessa baseline, niente `mb-2` extra
+Conversion (base):
+`value = raw * scale / (mult || 1) / 10^dec + shift`, with `scale||1`.
 
-## File toccati
+Special overrides (`channelOverrides.ts`) applied AFTER base formula:
+- `RPM`, `ecu nmot` → divide by 2.778, badge `conversione speciale`.
+- Any channel with `mult==36` in the listed rate set (`sclu *`, `IMU Gyro*`, `sclu FA/RA *`) → keep base value, badge yellow `scala da verificare`. No invented factor.
+- `GPS Speed` → badge `scala da verificare`.
+- Table is name-keyed and easy to extend.
 
-- `src/styles.css` — dark theme: cambio i valori `:root` (oggi light) e tengo `.dark` come opzionale; il default diventa scuro. Rimappo anche pochi colori hard-coded.
-- `src/routes/__root.tsx` — aggiungo `className="dark"` su `<html>` per attivare la classe se ancora referenziata da shadcn.
-- `src/routes/debrief.tsx` — riorganizzo in grid 12-col responsive.
-- `src/routes/index.tsx` — landing più densa, 3-col features.
-- `src/routes/docs.tsx` — 2-col TOC + contenuto.
-- Tutti i pannelli `src/components/telemetry/*.tsx` — solo modifiche LAYOUT (min-w-0, overflow hidden, riduzione padding, altezze grafici, SVG responsive). NESSUNA modifica a engine, parser, formule, tooltip, semantica.
+X axis:
+- Per-channel time axis = `i / freq` seconds (do NOT resample to 100 Hz).
+- Distance mode: use `Lap Distance` (m) as X; interpolate other channels onto its timeline using each channel's native time axis.
 
-## Vincoli che NON tocco
+Errors: if header magic / pointers invalid → throw typed `LdParseError`, surfaced as inline toast/banner; never crash.
 
-- Engine in `src/lib/ld/**`: invariati
-- Numeri, statistiche, etichette, tooltip e disclaimer dei pannelli: invariati
-- Logica dei gauge/box plot/radar/heatmap già implementati: solo wrapper SVG reso responsive
-- Componenti shadcn: usati come sono, solo i token CSS cambiano
+## 4. .ldx metadata
 
-## Verifica finale
+Small XML parsed on main thread with `DOMParser`: extract `Total Laps`, `Fastest Lap`, `Fastest Time`. Merged into session metadata. Optional — absence is fine.
 
-- `bunx tsgo --noEmit` deve passare
-- Apro `/debrief`, `/`, `/docs` via Playwright a 1280×800 e 1920×1080 → screenshot, verifico zero scrollbar orizzontali e leggibilità contrasto dark
+## 5. Laps
+
+- Multiple `.ld` files → each = one lap/session (named by filename + index).
+- Single file with multiple laps → segment by `Lap Number` change, fallback to `Lap Distance` resets (decrease > threshold).
+- Lap = `{ index, tStart, tEnd, duration, sampleRange per channel }`.
+
+## 6. Dashboard UX
+
+Top bar (`SessionBar`):
+- Vettura, pista, data/ora, device, # canali, # giri.
+- Mode toggle: `Giro singolo | Confronto giri | Tutti i giri` (shadcn `ToggleGroup`).
+- Reference-lap dropdown showing lap time alongside each entry.
+
+Left sidebar (`ChannelSidebar`):
+- Categories from name prefixes per spec (Motore/Freni/Gomme/Sospensioni/Dinamica/GPS/Giro/Elettronica/Ambiente/Altro).
+- Search input filters by name.
+- Each row: name · unit · freq · badges · checkbox to toggle plot visibility.
+
+Center (`ChartArea`):
+- Multi-channel line charts (Recharts). X axis switch: Tempo / Distanza.
+- Multiple Y axes when units differ; toggle "Normalizza (0–1)" for shared axis.
+- `Confronto giri`: one chart per selected channel, one line per lap.
+- `Tutti i giri`: overlay all laps with low opacity, reference lap solid/coloured.
+- Synced vertical cursor across charts via `CursorContext` (hover x broadcasts; tooltip on each chart reads values at nearest sample of its own series).
+- Brush for zoom/pan + reset-zoom button.
+- Visual downsampling above ~2k points per series (LTTB), raw data untouched.
+
+Tabs in the main area: `Grafici | Tabella canali | Mappa GPS`.
+
+`ChannelTable`: min, max, media, n_campioni, freq, unit, badge — every channel.
+
+`GpsTrack`: if `GPS Latitude` + `GPS Longitude` exist, draw polyline on `<canvas>`, colour each segment by `Ground Speed` (or `GPS Speed` with its badge). Subscribes to cursor context to draw the position marker.
+
+## 7. Performance & robustness
+
+- Parser runs in `ldParser.worker.ts`; transfers `ArrayBuffer` to worker, returns transferable typed-array buffers per channel.
+- Progress messages (`{type:'progress', pct}`) → progress bar in dropzone.
+- Typed arrays throughout (`Int16Array`/`Int32Array` for raw, `Float32Array` for converted).
+- LTTB downsampling only at render time.
+- No mock data: empty channel → render "Nessun dato" badge; never fabricate values.
+- All work stays local — no `fetch`, no analytics.
+
+## 8. Deliverable
+
+Working SPA at `/` that accepts drag-and-drop `.ld` (+ optional `.ldx`), parses correctly on first load of a real file, and exposes every channel via sidebar + charts + table + GPS trace, with the three lap modes and reference-lap selector.
+
+## Open questions (low-impact — happy to default unless you object)
+
+1. Default X axis = **Tempo (s)**, toggle to Distanza when `Lap Distance` exists.
+2. Default chart layout = **one chart per Y-unit group** of selected channels (avoids unreadable multi-axis stacks). User can opt into "single chart, multi-axis".
+3. Theme = current light shadcn defaults; can switch to dark racing-style later if preferred.

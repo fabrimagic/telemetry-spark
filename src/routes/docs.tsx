@@ -129,22 +129,22 @@ function Tech({ children }: { children: React.ReactNode }) {
 
 function DocsPage() {
   return (
-    <div className="mx-auto w-full max-w-[1400px] min-w-0 px-4 py-5">
-      <header className="border-b border-border pb-3 font-mono">
-        <div className="text-[9px] uppercase tracking-[0.3em] text-race-red">◉ Documentation</div>
-        <h1 className="font-display text-3xl leading-none tracking-wider">
+    <div className="mx-auto w-full max-w-[1400px] px-6 py-8">
+      <header className="border-b border-ink/30 pb-4 font-mono">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-race-red">◉ Documentation</div>
+        <h1 className="font-display text-4xl leading-none tracking-wider">
           MoTeC Pit-Wall Analyzer · Manuale
         </h1>
-        <p className="mt-2 max-w-3xl text-xs text-muted-foreground">
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
           Guida operativa e descrizione tecnica di ogni output prodotto dall'app.
           Naviga tramite l'indice a sinistra o usa gli hyperlink in ogni paragrafo.
         </p>
       </header>
 
-      <div className="mt-4 grid grid-cols-12 gap-3">
+      <div className="mt-6 grid grid-cols-12 gap-6">
         {/* ToC */}
-        <aside className="col-span-12 min-w-0 lg:col-span-3">
-          <nav className="lg:sticky lg:top-4 max-h-[calc(100vh-5rem)] overflow-auto border border-border bg-card p-2">
+        <aside className="col-span-12 lg:col-span-3">
+          <nav className="lg:sticky lg:top-6 max-h-[calc(100vh-6rem)] overflow-auto border border-ink/20 bg-card p-3">
             <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
               Indice
             </div>
@@ -186,7 +186,7 @@ function DocsPage() {
         </aside>
 
         {/* Content */}
-        <main className="col-span-12 min-w-0 space-y-6 lg:col-span-9">
+        <main className="col-span-12 space-y-10 lg:col-span-9">
           {/* ---------- Intro ---------- */}
           <Section id="intro" title="Introduzione">
             <p>

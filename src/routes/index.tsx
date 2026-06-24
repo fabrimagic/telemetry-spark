@@ -88,7 +88,7 @@ function Index() {
           onAddFiles={loader.loadFiles}
         />
 
-        <main className="min-w-0 flex-1 px-4 py-5">
+        <main className="flex-1 px-6 py-8">
           {!hasAnything ? (
             <EmptyState>
               <FileDropzone
@@ -100,7 +100,7 @@ function Index() {
               />
             </EmptyState>
           ) : (
-            <div className="w-full min-w-0 space-y-3">
+            <div className="mx-auto w-full max-w-[1800px] space-y-6">
               {loader.error && (
                 <div className="paper-card border-race-red bg-race-red/5 p-3 text-sm">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-race-red">
@@ -124,7 +124,7 @@ function Index() {
                 toolsets={loader.toolsets.length}
               />
 
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
                 {loader.files.flatMap((f, i) => [
                   <div key={`ld-${i}`} id={`ld-${i}`} className="min-w-0">
                     <PaperPanel
@@ -528,21 +528,21 @@ function PaperPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="paper-card min-w-0">
-      <header className="flex flex-wrap items-end justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="min-w-0">
-          <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-race-red">
+    <section id={id} className="paper-card">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/30 px-5 py-4">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-race-red">
             ◉ {eyebrow}
           </div>
-          <h2 className="truncate font-display text-xl leading-none tracking-wider">{title}</h2>
+          <h2 className="font-display text-3xl leading-none tracking-wider">{title}</h2>
         </div>
         {meta && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {meta.map((m) => (
               <Badge
                 key={m.k}
                 variant="outline"
-                className="rounded-none border-border font-mono text-[9px] uppercase tracking-widest"
+                className="rounded-none border-ink font-mono text-[10px] uppercase tracking-widest"
               >
                 {m.k} · {m.v}
               </Badge>
@@ -550,7 +550,7 @@ function PaperPanel({
           </div>
         )}
       </header>
-      <div className="min-w-0 overflow-x-hidden p-2">{children}</div>
+      <div className="p-2">{children}</div>
     </section>
   );
 }
