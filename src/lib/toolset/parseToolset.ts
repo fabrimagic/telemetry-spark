@@ -20,12 +20,29 @@ interface Options {
 const SETUP_BINARY = "setup.binary";
 const CONTENT_TYPES = "[Content_Types].xml";
 
-const SNAKE_NAME_RE = /^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+){1,}$/;
-const CAN_BUS_RE = /^CAN\s+(\d+)(?:\s+(\S[^\x00]*))?$/i;
+// Strict snake_case identifier: must start lowercase, contain ≥1 underscore segment.
+// Tightened (was [A-Za-z]…) to avoid counting CamelCase tokens / XAML fragments.
+const SNAKE_NAME_RE = /^[a-z][a-z0-9]*(?:_[a-zA-Z0-9]+)+$/;
+const CAN_BUS_RE = /^CAN\s+0*(\d+)(?:\s+([\x20-\x7e]+))?$/i;
 const VERSION_RE = /\b(Hardware|Software|Firmware)\s+Version\b/i;
 const ALARM_RE = /(error|alarm|timed\s*out|check\s|fault|warning)/i;
+// XAML markup tokens that pollute the alarm set when matched as plain strings.
+const ALARM_XAML_MARKER_RE = /<dash:|TextBlock|SourceName=|<\w+:|xmlns/i;
 const PORT_RE = /^(Input|Digital)\s+\d{1,3}$/;
 const DEVICE_HINTS = ["Porsche", "Badenia", "Cosworth", "Pi Research"];
+
+// Expected CAN bus domain labels (Porsche logger). Used as fallback when the
+// raw string extracted from setup.binary is missing or corrupted by trailing bytes.
+const EXPECTED_CAN_LABELS: Record<number, string> = {
+  1: "Antrieb",
+  2: "Car",
+  3: "Chassis",
+  4: "Lights",
+  5: "Interior",
+  6: "Gearbox",
+  7: "Scrutineering",
+  8: "Team",
+};
 
 // Calibration hint patterns — match raw textual indicators only, never compute factors.
 const CALIBRATION_RES: RegExp[] = [
@@ -36,6 +53,18 @@ const CALIBRATION_RES: RegExp[] = [
   /\bGain\s*:/i,
   /\bbar\s*sensor\b/i,
 ];
+
+/** Truncate a string at the first non-printable-ASCII byte (excluding null). */
+function cleanAscii(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x20 || c > 0x7e) break;
+    out += s[i];
+  }
+  return out.trim();
+}
+
 
 // Default placeholder range for "no real range set". Used to flag significant ranges.
 function isPlaceholderRange(min: number | undefined, max: number | undefined): boolean {
