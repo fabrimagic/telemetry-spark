@@ -184,6 +184,59 @@ function DebriefPage() {
   const lapAbs = selected ? absHits.filter((h) => h.lap === selected.lap) : [];
   const lapChanges = selected ? setupChanges.filter((c) => c.lap === selected.lap) : [];
 
+  // Distance↔time index for the selected lap (used by spatial interactions).
+  const distTime = useMemo(
+    () => (selected ? buildDistTimeIndex(file, selected) : null),
+    [file, selected],
+  );
+
+  // Cursor sample (channel values + per-corner temps at cursorDist).
+  const cursorSample = useMemo(() => {
+    if (!selected || cursorDist == null || !distTime) return null;
+    const t = distTime.tAt(cursorDist);
+    if (t == null) return null;
+    return sampleAtTime(file, t);
+  }, [file, selected, cursorDist, distTime]);
+
+  // ABS markers (for the map overlay) drawn from this lap's hits.
+  const absMarkers: TrackAbsMarker[] = useMemo(
+    () =>
+      lapAbs
+        .filter((h): h is AbsHit & { lapDistance: number } =>
+          h.lapDistance !== undefined && Number.isFinite(h.lapDistance),
+        )
+        .map((h) => ({ d: h.lapDistance, durationS: h.durationS })),
+    [lapAbs],
+  );
+
+  // Apply a pending setup-change focus once the matching lap has been
+  // selected and its distance↔time index is built.
+  useEffect(() => {
+    const pending = pendingSetupRef.current;
+    if (!pending || !selected || pending.lap !== selected.lap || !distTime) return;
+    const d = distTime.dAt(pending.tSec);
+    pendingSetupRef.current = null;
+    if (d != null) {
+      setSetupMark({ d, label: pending.label });
+      setCursorDist(d);
+    }
+  }, [selected, distTime]);
+
+  const focusSetupChange = (c: SetupChange) => {
+    if (!selected || selected.lap !== c.lap) {
+      pendingSetupRef.current = { lap: c.lap, tSec: c.tSec, label: c.channelLabel };
+      setSelectedLap(c.lap);
+      return;
+    }
+    if (!distTime) return;
+    const d = distTime.dAt(c.tSec);
+    if (d != null) {
+      setSetupMark({ d, label: c.channelLabel });
+      setCursorDist(d);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
       <header className="border-b border-ink/30 pb-3 font-mono">
