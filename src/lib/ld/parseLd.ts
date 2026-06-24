@@ -106,7 +106,6 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
       const ovr = getOverride(name, mult);
       // Read raw as typed array (aligned views: copy bytes for safety since dataPtr alignment is not guaranteed).
       if (size === 4) {
-        // Build aligned Int32 buffer
         const tmp = new ArrayBuffer(nSamples * 4);
         new Uint8Array(tmp).set(u8.subarray(dataPtr, dataPtr + nSamples * 4));
         const raw = new Int32Array(tmp);
@@ -122,13 +121,19 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
         }
       }
 
-      let min = Infinity, max = -Infinity, sum = 0;
+      // B2: for channels where negative values are NOT physically plausible
+      // (distances, times, counters, lap numbers, busy flags), exclude
+      // sentinel samples (<= -1) from min/max/avg.
+      const filterSentinel = isSentinelFiltered(name);
+      let min = Infinity, max = -Infinity, sum = 0, cnt = 0;
       for (let j = 0; j < nSamples; j++) {
         const v = values[j];
+        if (filterSentinel && v <= -1) continue;
         if (v < min) min = v;
         if (v > max) max = v;
-        sum += v;
+        sum += v; cnt++;
       }
+      if (cnt === 0) { min = NaN; max = NaN; }
 
       channels.push({
         idx: i,
@@ -144,7 +149,7 @@ export function parseLd(buf: ArrayBuffer, opts: ParseOptions = {}): Omit<LdFile,
         values,
         min,
         max,
-        avg: sum / nSamples,
+        avg: cnt > 0 ? sum / cnt : NaN,
         badges: getOverride(name, mult).badges,
         category: categorize(name),
         empty: false,
