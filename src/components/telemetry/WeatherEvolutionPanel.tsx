@@ -7,7 +7,7 @@
 // integration with external weather data lives in a separate module that
 // activates only when these on-board channels are absent.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -19,14 +19,23 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { LdFile } from "@/lib/ld/types";
+import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
+import { resolveChannel } from "@/lib/ld/channelResolver";
 import {
   buildWeatherEvolution,
   WET_TRANSITION_PCT,
   type LapWeatherRow,
   type SeriesDelta,
 } from "@/lib/ld/weatherEvolution";
+import {
+  fetchOpenMeteo,
+  normalizeSessionDate,
+  sessionTimeToSeconds,
+  type OpenMeteoSeries,
+} from "@/lib/weather/openMeteo";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function fmt(n: number | undefined, d = 1): string {
   if (n === undefined || !Number.isFinite(n)) return "—";
