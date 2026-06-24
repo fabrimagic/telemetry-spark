@@ -78,6 +78,11 @@ export interface SpatialDispersionRow {
   /** CV = std / |mean| (dimensionless). NaN when not computable. */
   vMinCV: number;
   brakePointCV: number;
+  /** Raw per-lap measured values forwarded from the SignatureRow, used by
+   *  the box-plot panel to compute REAL quartiles. Same chronological order
+   *  as BrakingSignatureResult.validLapNumbers; values are undefined when the
+   *  lap did not yield a usable sample (never interpolated). */
+  perLapValues: PerLapZoneEntry[];
 }
 
 export interface ConsistencySummary {
