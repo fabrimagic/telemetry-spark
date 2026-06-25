@@ -28,11 +28,15 @@ import {
   detectBrakingZones,
   type BrakingZone,
 } from "@/lib/ld/lapComparison";
+import {
+  V_MIN_KMH,
+  SLIP_SIGNIFICANT_PCT,
+  computeSlipOnGrid,
+} from "@/lib/ld/slipFormula";
 
-/** Below this speed the slip ratio becomes numerically unstable. Declared. */
-export const V_MIN_KMH = 30;
-/** Slip percentage flagged as "significant" for the time-over-threshold metric. Declared. */
-export const SLIP_SIGNIFICANT_PCT = 2;
+// Re-export so existing call sites that import from tractionSlip keep working.
+export { V_MIN_KMH, SLIP_SIGNIFICANT_PCT, computeSlipOnGrid };
+
 
 export interface TractionSlipStats {
   count: number;
