@@ -346,241 +346,244 @@ function DebriefPage() {
           </PaperPanel>
         </div>
 
-        {/* ---------- Weather Evolution (stint aggregate, on-board sensors) ---------- */}
+        {/* ---------- Tabbed analysis panels ---------- */}
         <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Conditions" title="Weather Evolution">
-            <WeatherEvolutionPanel file={file} laps={laps} />
-          </PaperPanel>
-        </div>
+          <Tabs defaultValue="weather" className="w-full">
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-none border border-ink/30 bg-card p-1">
+              <TabsTrigger value="weather" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Weather Evolution</TabsTrigger>
+              <TabsTrigger value="tyres" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Tyre Evolution</TabsTrigger>
+              <TabsTrigger value="brakes" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Brake Management</TabsTrigger>
+              <TabsTrigger value="engine" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Engine Information</TabsTrigger>
+              <TabsTrigger value="lapDetail" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Lap Detail</TabsTrigger>
+              <TabsTrigger value="lapCompare" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Lap Comparison</TabsTrigger>
+              <TabsTrigger value="signature" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Braking &amp; Traction</TabsTrigger>
+              <TabsTrigger value="consistency" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Driving Consistency</TabsTrigger>
+              <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
+            </TabsList>
 
-        {/* ---------- Tyre Evolution (session-level) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Management" title="Tyre Evolution">
-            <TyreEvolutionPanel file={file} laps={laps} />
-          </PaperPanel>
-        </div>
+            <TabsContent value="weather" className="mt-4">
+              <PaperPanel eyebrow="Conditions" title="Weather Evolution">
+                <WeatherEvolutionPanel file={file} laps={laps} />
+              </PaperPanel>
+            </TabsContent>
 
-        {/* ---------- Brake Management (session-level) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Management" title="Brake Management">
-            <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
-          </PaperPanel>
-        </div>
+            <TabsContent value="tyres" className="mt-4">
+              <PaperPanel eyebrow="Management" title="Tyre Evolution">
+                <TyreEvolutionPanel file={file} laps={laps} />
+              </PaperPanel>
+            </TabsContent>
 
-        {/* ---------- Engine Health (session-level) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Management" title="Engine Health">
-            <EngineHealthPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
-          </PaperPanel>
-        </div>
+            <TabsContent value="brakes" className="mt-4">
+              <PaperPanel eyebrow="Management" title="Brake Management">
+                <BrakeManagementPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+              </PaperPanel>
+            </TabsContent>
 
+            <TabsContent value="engine" className="mt-4 space-y-6">
+              <PaperPanel eyebrow="Management" title="Engine Health">
+                <EngineHealthPanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+              </PaperPanel>
+              <PaperPanel eyebrow="Engine" title="Engine Usage">
+                <EngineUsagePanel file={file} laps={laps} />
+              </PaperPanel>
+            </TabsContent>
 
-
-        {/* ---------- Lap selector / drill-down ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Drill-down" title="Lap Detail">
-            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                Giro:
-              </span>
-              <Button
-                size="sm"
-                variant={selectedLap === "all" ? "default" : "outline"}
-                onClick={() => setSelectedLap("all")}
-                className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
-              >
-                tutti
-              </Button>
-              {laps.map((r) => (
-                <Button
-                  key={r.lap}
-                  size="sm"
-                  variant={selectedLap === r.lap ? "default" : "outline"}
-                  onClick={() => setSelectedLap(r.lap)}
-                  title={r.isValidLap ? undefined : "Giro non valido — ispezionabile"}
-                  className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-60 italic" : ""}`}
-                >
-                  L{r.lap}
-                </Button>
-              ))}
-            </div>
-
-            {selected === null ? (
-              <>
-                {has.abs && has.lapDistance && (
-                  <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
-                )}
-                <p className="mt-4 font-mono text-[11px] text-muted-foreground">
-                  Seleziona un giro per il dettaglio.
-                </p>
-              </>
-            ) : (
-              <div className="space-y-5">
-                <h3 className="font-mono text-sm font-bold tracking-widest">
-                  L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
-                  {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
-                </h3>
-
-                <div className="grid grid-cols-12 gap-5">
-                  {/* Track map */}
-                  <div className="col-span-12 min-w-0 xl:col-span-5">
-                    <Section title="Track Map">
-                      <TrackMap
-                        file={file}
-                        refLap={lapRowToLap(selected)}
-                        cursorDist={cursorDist}
-                        onCursorDistChange={setCursorDist}
-                        absMarkers={absMarkers}
-                        setupMark={setupMark}
-                      />
-                      <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
-                    </Section>
-                  </div>
-
-                  {/* Channel traces */}
-                  <div className="col-span-12 min-w-0 xl:col-span-7">
-                    <Section title="Channel Traces (vs Lap Distance)">
-                      <LapChannelTraces
-                        file={file}
-                        lap={selected}
-                        refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
-                        cursorDist={cursorDist}
-                        onCursorDistChange={setCursorDist}
-                      />
-                    </Section>
-                  </div>
-
-                  {/* ABS hits */}
-                  {has.abs && (
-                    <div className="col-span-12 min-w-0 xl:col-span-6 2xl:col-span-4">
-                      <Section title="ABS Activations">
-                        {lapAbs.length === 0 ? (
-                          <p className="font-mono text-xs text-muted-foreground">Nessuna attivazione ABS.</p>
-                        ) : (
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="border-b border-ink/20">
-                                <TH>#</TH>
-                                <TH align="right">t (mm:ss)</TH>
-                                {has.lapDistance && <TH align="right">Lap Dist (m)</TH>}
-                                <TH align="right">Dur (s)</TH>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {lapAbs.map((h, i) => (
-                                <TableRow key={i} className="border-b border-ink/10">
-                                  <TableCell className="font-mono text-xs tabular-nums">{i + 1}</TableCell>
-                                  <TableCell className="text-right font-mono text-xs tabular-nums">{fmtTime(h.tSec - selected.tStart)}</TableCell>
-                                  {has.lapDistance && (
-                                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(h.lapDistance, 0)}</TableCell>
-                                  )}
-                                  <TableCell className="text-right font-mono text-xs tabular-nums">{h.durationS.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </Section>
-                    </div>
-                  )}
-
-                  {/* Brakes */}
-                  {has.brakes && (
-                    <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
-                      <Section title="Brake Disc Temps">
-                        <CornerGrid corner={selected.brakes} unit="°C" />
-                      </Section>
-                    </div>
-                  )}
-
-                  {/* Tyres */}
-                  {has.tyres && (
-                    <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
-                      <Section title="Tyre Temps (TPMS)">
-                        <CornerGrid corner={selected.tyres} unit="°C" />
-                      </Section>
-                    </div>
-                  )}
-
-                  {/* Setup changes in lap */}
-                  <div className="col-span-12 min-w-0">
-                    <Section title="Setup Changes in Lap">
-                      {lapChanges.length === 0 ? (
-                        <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
-                      ) : (
-                        <ul className="space-y-1 font-mono text-xs">
-                          {lapChanges.map((c) => {
-                            const active = setupMark?.label === c.channelLabel;
-                            return (
-                              <li key={c.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => focusSetupChange(c)}
-                                  className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
-                                  title="Localizza sulla mappa"
-                                >
-                                  <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
-                                  <span className="font-bold">{c.channelLabel}</span>
-                                  <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
-                                  <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </Section>
-                  </div>
+            <TabsContent value="lapDetail" className="mt-4">
+              <PaperPanel eyebrow="Drill-down" title="Lap Detail">
+                <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Giro:
+                  </span>
+                  <Button
+                    size="sm"
+                    variant={selectedLap === "all" ? "default" : "outline"}
+                    onClick={() => setSelectedLap("all")}
+                    className="h-7 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                  >
+                    tutti
+                  </Button>
+                  {laps.map((r) => (
+                    <Button
+                      key={r.lap}
+                      size="sm"
+                      variant={selectedLap === r.lap ? "default" : "outline"}
+                      onClick={() => setSelectedLap(r.lap)}
+                      title={r.isValidLap ? undefined : "Giro non valido — ispezionabile"}
+                      className={`h-7 rounded-none font-mono text-[10px] uppercase tracking-widest ${r.isFastest ? "border-race-red text-race-red" : ""} ${!r.isValidLap ? "opacity-60 italic" : ""}`}
+                    >
+                      L{r.lap}
+                    </Button>
+                  ))}
                 </div>
-              </div>
-            )}
-          </PaperPanel>
+
+                {selected === null ? (
+                  <>
+                    {has.abs && has.lapDistance && (
+                      <AbsDistributionBars hits={absHits} refLapLength={refLapLength} />
+                    )}
+                    <p className="mt-4 font-mono text-[11px] text-muted-foreground">
+                      Seleziona un giro per il dettaglio.
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-5">
+                    <h3 className="font-mono text-sm font-bold tracking-widest">
+                      L{selected.lap} · ≈ {fmtLapTimeRough(selected.durationS)}
+                      {!selected.isValidLap && <span className="ml-2"><MiniBadge tone="ink">invalid</MiniBadge></span>}
+                    </h3>
+
+                    <div className="grid grid-cols-12 gap-5">
+                      {/* Track map */}
+                      <div className="col-span-12 min-w-0 xl:col-span-5">
+                        <Section title="Track Map">
+                          <TrackMap
+                            file={file}
+                            refLap={lapRowToLap(selected)}
+                            cursorDist={cursorDist}
+                            onCursorDistChange={setCursorDist}
+                            absMarkers={absMarkers}
+                            setupMark={setupMark}
+                          />
+                          <CursorInfoPanel cursorDist={cursorDist} sample={cursorSample} />
+                        </Section>
+                      </div>
+
+                      {/* Channel traces */}
+                      <div className="col-span-12 min-w-0 xl:col-span-7">
+                        <Section title="Channel Traces (vs Lap Distance)">
+                          <LapChannelTraces
+                            file={file}
+                            lap={selected}
+                            refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
+                            cursorDist={cursorDist}
+                            onCursorDistChange={setCursorDist}
+                          />
+                        </Section>
+                      </div>
+
+                      {/* ABS hits */}
+                      {has.abs && (
+                        <div className="col-span-12 min-w-0 xl:col-span-6 2xl:col-span-4">
+                          <Section title="ABS Activations">
+                            {lapAbs.length === 0 ? (
+                              <p className="font-mono text-xs text-muted-foreground">Nessuna attivazione ABS.</p>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="border-b border-ink/20">
+                                    <TH>#</TH>
+                                    <TH align="right">t (mm:ss)</TH>
+                                    {has.lapDistance && <TH align="right">Lap Dist (m)</TH>}
+                                    <TH align="right">Dur (s)</TH>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {lapAbs.map((h, i) => (
+                                    <TableRow key={i} className="border-b border-ink/10">
+                                      <TableCell className="font-mono text-xs tabular-nums">{i + 1}</TableCell>
+                                      <TableCell className="text-right font-mono text-xs tabular-nums">{fmtTime(h.tSec - selected.tStart)}</TableCell>
+                                      {has.lapDistance && (
+                                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(h.lapDistance, 0)}</TableCell>
+                                      )}
+                                      <TableCell className="text-right font-mono text-xs tabular-nums">{h.durationS.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Section>
+                        </div>
+                      )}
+
+                      {/* Brakes */}
+                      {has.brakes && (
+                        <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
+                          <Section title="Brake Disc Temps">
+                            <CornerGrid corner={selected.brakes} unit="°C" />
+                          </Section>
+                        </div>
+                      )}
+
+                      {/* Tyres */}
+                      {has.tyres && (
+                        <div className="col-span-12 min-w-0 sm:col-span-6 xl:col-span-3 2xl:col-span-4">
+                          <Section title="Tyre Temps (TPMS)">
+                            <CornerGrid corner={selected.tyres} unit="°C" />
+                          </Section>
+                        </div>
+                      )}
+
+                      {/* Setup changes in lap */}
+                      <div className="col-span-12 min-w-0">
+                        <Section title="Setup Changes in Lap">
+                          {lapChanges.length === 0 ? (
+                            <p className="font-mono text-xs text-muted-foreground">Nessun cambio registrato in questo giro.</p>
+                          ) : (
+                            <ul className="space-y-1 font-mono text-xs">
+                              {lapChanges.map((c) => {
+                                const active = setupMark?.label === c.channelLabel;
+                                return (
+                                  <li key={c.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => focusSetupChange(c)}
+                                      className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
+                                      title="Localizza sulla mappa"
+                                    >
+                                      <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                                      <span className="font-bold">{c.channelLabel}</span>
+                                      <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
+                                      <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </Section>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="lapCompare" className="mt-4">
+              <PaperPanel eyebrow="Performance" title="Lap Comparison">
+                <LapComparisonPanel file={file} laps={laps} selectedLap={selectedLap} />
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="signature" className="mt-4">
+              <PaperPanel eyebrow="Performance" title="Braking & Traction Signature">
+                <BrakingSignaturePanel
+                  file={file}
+                  laps={laps}
+                  absHits={absHits}
+                  hasAbs={has.abs}
+                />
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="consistency" className="mt-4">
+              <PaperPanel eyebrow="Performance" title="Driving Consistency">
+                <DrivingConsistencyPanel
+                  file={file}
+                  laps={laps}
+                  absHits={absHits}
+                  hasAbs={has.abs}
+                />
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="thermal" className="mt-4">
+              <PaperPanel eyebrow="Setup" title="Thermal Balance">
+                <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+              </PaperPanel>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* ---------- Lap Comparison (spatial overlay vs fastest) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Performance" title="Lap Comparison">
-            <LapComparisonPanel file={file} laps={laps} selectedLap={selectedLap} />
-          </PaperPanel>
-        </div>
-
-        {/* ---------- Braking & Traction Signature (stint aggregate) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Performance" title="Braking & Traction Signature">
-            <BrakingSignaturePanel
-              file={file}
-              laps={laps}
-              absHits={absHits}
-              hasAbs={has.abs}
-            />
-          </PaperPanel>
-        </div>
-
-        {/* ---------- Driving Consistency (stint aggregate) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Performance" title="Driving Consistency">
-            <DrivingConsistencyPanel
-              file={file}
-              laps={laps}
-              absHits={absHits}
-              hasAbs={has.abs}
-            />
-          </PaperPanel>
-        </div>
-
-        {/* ---------- Thermal Balance (stint aggregate, setup-oriented read) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Setup" title="Thermal Balance">
-            <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
-          </PaperPanel>
-        </div>
-
-        {/* ---------- Engine Usage (stint aggregate, RPM-based) ---------- */}
-        <div className="col-span-12 min-w-0">
-          <PaperPanel eyebrow="Engine" title="Engine Usage">
-            <EngineUsagePanel file={file} laps={laps} />
-          </PaperPanel>
-        </div>
 
 
 
