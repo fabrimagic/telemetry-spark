@@ -53,7 +53,7 @@ export function Gauge({
   marker,
   markerLabel,
   size = 180,
-  color = "hsl(var(--race-red))",
+  color = "#22d3ee", // bright cyan, visible against card/track backgrounds
 }: GaugeProps) {
   const uid = useId();
   const w = size;
