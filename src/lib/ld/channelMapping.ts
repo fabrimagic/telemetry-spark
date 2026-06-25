@@ -36,12 +36,40 @@ export interface UnresolvedLogicalEntry {
   patterns: string[];
 }
 
+/**
+ * Classification of an unmapped physical channel based on cached parser stats
+ * (min/max/avg/nSamples/empty). No heavy recomputation, no invented thresholds.
+ *
+ * - "data":     min != max with finite values → real signal, candidate for a
+ *               new alias in the resolver.
+ * - "constant": has samples but min == max (within FLAT_TOL) or any of
+ *               min/max/avg is NaN → flat / stuck / sentinel; mapping it
+ *               would not add usable signal.
+ * - "empty":    no samples at all (empty===true or nSamples===0). Normally
+ *               filtered out upstream by `isChannelUsable`, kept here for
+ *               completeness if a caller passes raw channels.
+ *
+ * Limit (declared): we cannot detect "populated but mostly null" (e.g. slip
+ * channels that are 0 for 99.7% of samples) from min/max alone, because a
+ * single non-zero sample would still make min != max. Detecting that would
+ * require an O(n) pass that is not currently cached on Channel, so it is
+ * intentionally out of scope here.
+ */
+export type UnmappedStatus = "data" | "constant" | "empty";
+
+/** Tolerance for declaring min == max (covers float-quantisation noise only). */
+const FLAT_TOL = 1e-9;
+
 export interface UnmappedChannelEntry {
   name: string;
   freq: number;
   unit: string;
   nSamples: number;
   category: ChannelCategory;
+  status: UnmappedStatus;
+  min: number;
+  max: number;
+  avg: number;
 }
 
 export interface ChannelMappingReport {
@@ -54,8 +82,21 @@ export interface ChannelMappingReport {
     usableChannels: number;
     mappedChannels: number;
     unmappedChannels: number;
+    unmappedWithData: number;
+    unmappedConstant: number;
+    unmappedEmpty: number;
   };
 }
+
+function classifyUnmapped(c: Channel): UnmappedStatus {
+  if (c.empty || c.nSamples === 0) return "empty";
+  if (!Number.isFinite(c.min) || !Number.isFinite(c.max) || !Number.isFinite(c.avg)) {
+    return "constant";
+  }
+  if (Math.abs(c.max - c.min) < FLAT_TOL) return "constant";
+  return "data";
+}
+
 
 export function buildChannelMapping(file: LdFile): ChannelMappingReport {
   const channels = file.channels;
@@ -81,8 +122,13 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
     }
   }
 
+  // For classification we consider ALL non-mapped channels (including empty
+  // and constant ones), so the engineer sees the full picture. `isChannelUsable`
+  // is still used for the "usable" total.
   const usable: Channel[] = channels.filter(isChannelUsable);
-  const unmapped: UnmappedChannelEntry[] = usable
+
+
+  const unmapped: UnmappedChannelEntry[] = channels
     .filter((c) => !mappedIdx.has(c.idx))
     .map((c) => ({
       name: c.name,
@@ -90,7 +136,27 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
       unit: c.unit,
       nSamples: c.nSamples,
       category: c.category,
+      status: classifyUnmapped(c),
+      min: c.min,
+      max: c.max,
+      avg: c.avg,
     }));
+
+  let unmappedWithData = 0;
+  let unmappedConstant = 0;
+  let unmappedEmpty = 0;
+  for (const u of unmapped) {
+    if (u.status === "data") unmappedWithData++;
+    else if (u.status === "constant") unmappedConstant++;
+    else unmappedEmpty++;
+  }
+
+  // "unmappedChannels" total counts only usable unmapped channels for
+  // backwards compatibility with the existing header ratio.
+  // "unmappedChannels" total counts only usable unmapped channels for
+  // backwards compatibility with the existing header ratio.
+  const unmappedUsableCount = unmappedWithData + unmappedConstant; // empty === !usable
+
 
   return {
     resolved,
@@ -101,7 +167,11 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
       resolvedKeys: resolved.length,
       usableChannels: usable.length,
       mappedChannels: mappedIdx.size,
-      unmappedChannels: unmapped.length,
+      unmappedChannels: unmappedUsableCount,
+      unmappedWithData,
+      unmappedConstant,
+      unmappedEmpty,
     },
   };
 }
+

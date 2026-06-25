@@ -9,7 +9,12 @@
 // logical keys flag features that will be degraded for this file.
 
 import { useMemo, useState } from "react";
-import { buildChannelMapping, type ChannelMappingReport } from "@/lib/ld/channelMapping";
+import {
+  buildChannelMapping,
+  type ChannelMappingReport,
+  type UnmappedStatus,
+} from "@/lib/ld/channelMapping";
+
 import type { LdFile } from "@/lib/ld/types";
 import {
   Table,
@@ -32,6 +37,13 @@ export function ChannelMappingPanel({ file }: Props) {
   const [showUnmapped, setShowUnmapped] = useState(false);
   const [unmappedFilter, setUnmappedFilter] = useState("");
 
+  // Status ordering: data first (actionable), then constant, then empty.
+  const STATUS_ORDER: Record<UnmappedStatus, number> = {
+    data: 0,
+    constant: 1,
+    empty: 2,
+  };
+
   const filteredUnmapped = useMemo(() => {
     const q = unmappedFilter.trim().toLowerCase();
     const list = q
@@ -42,26 +54,49 @@ export function ChannelMappingPanel({ file }: Props) {
             c.unit.toLowerCase().includes(q),
         )
       : report.unmapped;
-    // Group by category for readability.
-    return [...list].sort((a, b) =>
-      a.category === b.category
-        ? a.name.localeCompare(b.name)
-        : a.category.localeCompare(b.category),
-    );
+    // Sort by status (data → constant → empty), then category, then name.
+    return [...list].sort((a, b) => {
+      const sa = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      if (sa !== 0) return sa;
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return a.name.localeCompare(b.name);
+    });
   }, [report.unmapped, unmappedFilter]);
 
+  const fmtNum = (v: number) =>
+    Number.isFinite(v) ? (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(3)) : "—";
+
+  const STATUS_LABEL: Record<UnmappedStatus, string> = {
+    data: "con dati",
+    constant: "costante",
+    empty: "vuoto",
+  };
+  const STATUS_DOT: Record<UnmappedStatus, string> = {
+    data: "bg-emerald-500",
+    constant: "bg-amber-500",
+    empty: "bg-muted-foreground",
+  };
+
   const { totals } = report;
+
 
   return (
     <div className="space-y-6">
       <p className="font-mono text-[11px] leading-snug text-muted-foreground">
         Strumento diagnostico per adattare l'app a file/vetture nuove. Mostra
         come i <em>logical key</em> dell'applicazione si risolvono sui canali
-        fisici del file caricato. I canali non mappati sono candidati per nuovi
-        alias nel resolver; i logical key non risolti indicano funzionalità che
-        resteranno degradate per questo file. Nessuna interpretazione: solo
-        fatti di matching.
+        fisici del file caricato. Tra i canali non mappati, solo quelli{" "}
+        <strong>con dati</strong> (min ≠ max, valori finiti) sono candidati reali
+        per nuovi alias nel resolver: l'app potrebbe sfruttarli ma ancora non li
+        cerca. I canali <strong>costanti</strong> (min ≡ max, o min/max/avg NaN)
+        e quelli <strong>vuoti</strong> (nessun campione) non porterebbero
+        valore anche se mappati, perché non contengono segnale utile. La
+        classificazione usa solo le statistiche già cachate dal parser
+        (min/max/avg/nSamples), nessuna soglia inventata. Limite dichiarato:
+        non distinguiamo "popolato ma quasi sempre nullo" da min/max soli — un
+        singolo campione non-zero basta a far apparire il canale "con dati".
       </p>
+
 
       {/* ---------- Resolved logical keys ---------- */}
       <section className="space-y-2">
@@ -162,7 +197,15 @@ export function ChannelMappingPanel({ file }: Props) {
             Canali fisici non mappati
           </h3>
           <span className="font-mono text-[11px] text-muted-foreground">
-            {totals.unmappedChannels} / {totals.usableChannels}
+            <span className="text-emerald-600 dark:text-emerald-400">
+              con dati: {totals.unmappedWithData}
+            </span>
+            {" · "}
+            <span className="text-amber-600 dark:text-amber-400">
+              costanti: {totals.unmappedConstant}
+            </span>
+            {" · "}
+            <span>vuoti: {totals.unmappedEmpty}</span>
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -188,39 +231,60 @@ export function ChannelMappingPanel({ file }: Props) {
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
                 <TableRow className="border-b border-ink/30">
+                  <TableHead className="font-mono text-[10px] uppercase tracking-widest">Stato</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Categoria</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Nome canale</TableHead>
                   <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Hz</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Unità</TableHead>
                   <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">N camp.</TableHead>
+                  <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Min</TableHead>
+                  <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Max</TableHead>
+                  <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Avg</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUnmapped.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="font-mono text-xs text-muted-foreground">
+                    <TableCell colSpan={9} className="font-mono text-xs text-muted-foreground">
                       Nessun canale corrisponde al filtro.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUnmapped.map((c, i) => (
-                    <TableRow
-                      key={`${c.name}-${i}`}
-                      className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""}`}
-                    >
-                      <TableCell className="font-mono text-[11px] text-muted-foreground">{c.category}</TableCell>
-                      <TableCell className="font-mono text-xs">{c.name}</TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums">{c.freq}</TableCell>
-                      <TableCell className="font-mono text-xs">{c.unit || "—"}</TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums">{c.nSamples}</TableCell>
-                    </TableRow>
-                  ))
+                  filteredUnmapped.map((c, i) => {
+                    const hasData = c.status === "data";
+                    return (
+                      <TableRow
+                        key={`${c.name}-${i}`}
+                        className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${hasData ? "" : "opacity-70"}`}
+                      >
+                        <TableCell className="font-mono text-[11px]">
+                          <span className={`mr-2 inline-block h-2 w-2 rounded-full ${STATUS_DOT[c.status]}`} />
+                          {STATUS_LABEL[c.status]}
+                        </TableCell>
+                        <TableCell className="font-mono text-[11px] text-muted-foreground">{c.category}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{c.freq}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.unit || "—"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{c.nSamples}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">
+                          {hasData ? fmtNum(c.min) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">
+                          {hasData ? fmtNum(c.max) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">
+                          {hasData ? fmtNum(c.avg) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
         )}
       </section>
+
     </div>
   );
 }
