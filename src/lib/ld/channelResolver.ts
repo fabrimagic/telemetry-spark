@@ -312,6 +312,19 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   "tyreTemp.fr": TYRE_TEMP_CORNERS.fr,
   "tyreTemp.rl": TYRE_TEMP_CORNERS.rl,
   "tyreTemp.rr": TYRE_TEMP_CORNERS.rr,
+
+  // ---- Suspension travel (reliable, mm, ~100 Hz) ----
+  "suspTravel.fl": [eq("log susp travel fl"), eq("susp travel fl"), eq("damper fl"), eq("shock travel fl")],
+  "suspTravel.fr": [eq("log susp travel fr"), eq("susp travel fr"), eq("damper fr"), eq("shock travel fr")],
+  "suspTravel.rl": [eq("log susp travel rl"), eq("susp travel rl"), eq("damper rl"), eq("shock travel rl")],
+  "suspTravel.rr": [eq("log susp travel rr"), eq("susp travel rr"), eq("damper rr"), eq("shock travel rr")],
+
+  // ---- Ride height (RAW / not calibrated — use as relative trend only) ----
+  "rideHeight.fl": [eq("log rideheight fl"), eq("ride height fl"), eq("rideheight fl")],
+  "rideHeight.fr": [eq("log rideheight fr"), eq("ride height fr"), eq("rideheight fr")],
+  "rideHeight.rl": [eq("log rideheight rl"), eq("ride height rl"), eq("rideheight rl")],
+  "rideHeight.rr": [eq("log rideheight rr"), eq("ride height rr"), eq("rideheight rr")],
+
   "tyrePress.fl": TYRE_PRESS_CORNERS.fl,
   "tyrePress.fr": TYRE_PRESS_CORNERS.fr,
   "tyrePress.rl": TYRE_PRESS_CORNERS.rl,
