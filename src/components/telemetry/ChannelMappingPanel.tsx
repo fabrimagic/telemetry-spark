@@ -60,17 +60,23 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
           (c) =>
             c.name.toLowerCase().includes(q) ||
             c.category.toLowerCase().includes(q) ||
-            c.unit.toLowerCase().includes(q),
+            c.unit.toLowerCase().includes(q) ||
+            (c.toolsetUnit?.toLowerCase().includes(q) ?? false) ||
+            (c.toolsetQuantity?.toLowerCase().includes(q) ?? false) ||
+            (c.toolsetDescription?.toLowerCase().includes(q) ?? false),
         )
       : report.unmapped;
-    // Sort by status (data → constant → empty), then category, then name.
+    // Sort by status (data → constant → empty), then channels WITH toolset
+    // metadata first within each status, then category, then name.
     return [...list].sort((a, b) => {
       const sa = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
       if (sa !== 0) return sa;
+      if (a.hasToolsetMeta !== b.hasToolsetMeta) return a.hasToolsetMeta ? -1 : 1;
       if (a.category !== b.category) return a.category.localeCompare(b.category);
       return a.name.localeCompare(b.name);
     });
   }, [report.unmapped, unmappedFilter]);
+
 
   const fmtNum = (v: number) =>
     Number.isFinite(v) ? (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(3)) : "—";
