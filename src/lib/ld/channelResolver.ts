@@ -58,6 +58,9 @@ export type LogicalKey =
   | "brakeBias"
   | "engineMap"
   | "tcMap"
+  | "tcLat"
+  | "tcLon"
+  | "tcWet"
   // Environment
   | "wet"
   | "airTemp"
@@ -192,8 +195,29 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
     eq("engine map"), eq("map position"), eq("map pos"),
     inc("engine map"),
   ],
+  // Traction-control configuration channels.
+  //
+  // Verified against the project's reference .ld files: the only TC channels
+  // that are actually logged AND usable are the two driver-selectable maps
+  // ("stw rt01 tc lat" 50 Hz, "stw rt03 tc lon" 50 Hz) and the wet-mode flag
+  // ("pcu state tc wet" 10 Hz). The intervention flag (ecu_B_tc_act) is NOT
+  // logged, and the per-wheel "abs Slip *" channels are null for ~99.7 % of
+  // samples — both are deliberately excluded everywhere in the app.
+  tcLat: [
+    eq("stw rt01 tc lat"), eq("tc lat"),
+    eq("tc map"), eq("tc position"), eq("tc level"),
+    eq("traction control"), inc("tc map"),
+  ],
+  tcLon: [
+    eq("stw rt03 tc lon"), eq("tc lon"),
+  ],
+  tcWet: [
+    eq("pcu state tc wet"), eq("tc wet"),
+  ],
+  // Backwards-compatible alias — points at the same patterns as tcLat so any
+  // legacy caller still resolves the lateral selector.
   tcMap: [
-    eq("stw rt01 tc lat"),
+    eq("stw rt01 tc lat"), eq("tc lat"),
     eq("tc map"), eq("tc position"), eq("tc level"),
     eq("traction control"), inc("tc map"),
   ],

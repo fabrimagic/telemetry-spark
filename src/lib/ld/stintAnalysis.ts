@@ -67,7 +67,7 @@ export interface LapRow {
   tyres: LapTempCorner;
 }
 
-export type SetupChannelKey = "brkbias" | "mappos" | "tc";
+export type SetupChannelKey = "brkbias" | "mappos" | "tc" | "tcLat" | "tcLon" | "tcWet";
 
 export interface SetupChange {
   id: string;
@@ -77,6 +77,12 @@ export interface SetupChange {
   tSec: number;
   prev: number;
   next: number;
+  /**
+   * True for channels whose value is a 0/1 mode flag (e.g. TC Wet). The
+   * renderer should format the transition as "attivata" / "disattivata"
+   * instead of showing the raw numeric levels.
+   */
+  binaryState?: boolean;
 }
 
 export interface LapCoherence {
@@ -126,7 +132,11 @@ export interface StintAnalysis {
     tyres: boolean;
     brkbias: boolean;
     mappos: boolean;
+    /** True iff any TC configuration channel is available (lat / lon / wet). */
     tc: boolean;
+    tcLat: boolean;
+    tcLon: boolean;
+    tcWet: boolean;
   };
 }
 
@@ -493,12 +503,27 @@ export function buildStintAnalysis(
   }
 
 
-  /* ----- 3. Setup changes ----- */
+  /* ----- 3. Setup changes -----
+   *
+   * The Setup-Change Timeline reports the CONFIGURATION the driver selected
+   * during the stint (brake bias, engine map, TC lateral / longitudinal
+   * selectors and TC wet-mode switch). It is NOT a record of TC interventions:
+   * the intervention flag (ecu_B_tc_act) is not logged in these files, and
+   * the per-wheel "abs Slip *" channels are null for ~99.7 % of samples, so
+   * they cannot be used to infer activity. Configuration, not activity.
+   */
   const setupChanges: SetupChange[] = [];
-  const setupSpecs: Array<{ key: SetupChannelKey; logical: LogicalKey; label: string }> = [
+  const setupSpecs: Array<{
+    key: SetupChannelKey;
+    logical: LogicalKey;
+    label: string;
+    binaryState?: boolean;
+  }> = [
     { key: "brkbias", logical: "brakeBias", label: "Brake Bias" },
     { key: "mappos", logical: "engineMap", label: "Engine Map" },
-    { key: "tc", logical: "tcMap", label: "TC Map" },
+    { key: "tcLat", logical: "tcLat", label: "TC Lat" },
+    { key: "tcLon", logical: "tcLon", label: "TC Lon" },
+    { key: "tcWet", logical: "tcWet", label: "TC Wet", binaryState: true },
   ];
   for (const spec of setupSpecs) {
     const c = resolveChannel(ch, spec.logical);
@@ -533,6 +558,7 @@ export function buildStintAnalysis(
               tSec,
               prev: prevLevel,
               next: runVal,
+              binaryState: spec.binaryState,
             });
             prevLevel = runVal;
           }
@@ -556,10 +582,15 @@ export function buildStintAnalysis(
         tSec,
         prev: prevLevel,
         next: runVal,
+        binaryState: spec.binaryState,
       });
     }
   }
   setupChanges.sort((a, b) => a.tSec - b.tSec);
+
+  const hasTcLat = !!resolveChannel(ch, "tcLat");
+  const hasTcLon = !!resolveChannel(ch, "tcLon");
+  const hasTcWet = !!resolveChannel(ch, "tcWet");
 
   return {
     conditions,
@@ -577,7 +608,10 @@ export function buildStintAnalysis(
       tyres: hasAnyCorner(ch, "tyreTemp"),
       brkbias: !!resolveChannel(ch, "brakeBias"),
       mappos: !!resolveChannel(ch, "engineMap"),
-      tc: !!resolveChannel(ch, "tcMap"),
+      tc: hasTcLat || hasTcLon || hasTcWet,
+      tcLat: hasTcLat,
+      tcLon: hasTcLon,
+      tcWet: hasTcWet,
     },
   };
 }
