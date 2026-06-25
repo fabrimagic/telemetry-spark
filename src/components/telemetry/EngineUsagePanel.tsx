@@ -1,9 +1,11 @@
-// Engine Usage panel — per-stint characterisation of RPM use.
+// Engine Usage panel — per-stint characterisation of RPM use, with REAL
+// gear-shift telemetry when the engaged-gear channel is present.
 //
-// All thresholds are derived from the stint data itself (peak / quantile);
+// All RPM thresholds are derived from the stint data itself (peak / quantile);
 // no absolute engine red-line is assumed. Over-rev events are statistical
-// peaks vs. the typical regime, NOT damage alarms. Shift counts are estimates
-// from RPM-drop events because no reliable gear channel is available.
+// peaks vs. the typical regime, NOT damage alarms. Shift counts are REAL
+// telemetry when summary.shiftSource === "gear"; otherwise they are
+// estimates from RPM-drop events labelled as such.
 
 import { useMemo } from "react";
 import type { LdFile } from "@/lib/ld/types";
@@ -40,8 +42,13 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
     return <Notice>{result.message}</Notice>;
   }
 
-  const { perLap, overRevs, thresholds, summary } = result;
+  const { perLap, overRevs, thresholds, summary, gearDistribution } = result;
   const maxBar = Math.max(...perLap.map((r) => r.maxRpm ?? 0), thresholds.stintMaxRpm);
+  const isReal = summary.shiftSource === "gear";
+  const shiftsLabel = isReal ? "Cambiate (telemetria reale)" : "Cambiate stimate";
+  const maxGearFrac = gearDistribution.length
+    ? Math.max(...gearDistribution.map((g) => g.fraction))
+    : 0;
 
   return (
     <div className="space-y-5">
@@ -70,12 +77,27 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
           </div>
         </div>
         <div>
-          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Cambiate stimate</div>
-          <div className="text-ink">{summary.totalShiftsEstimated}</div>
+          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">{shiftsLabel}</div>
+          <div className="text-ink">
+            {isReal ? (
+              <>
+                {summary.totalShiftsUp + summary.totalShiftsDown}
+                <span className="ml-1 text-[9px] text-muted-foreground">
+                  ({summary.totalShiftsUp}↑ / {summary.totalShiftsDown}↓)
+                </span>
+              </>
+            ) : (
+              summary.totalShiftsUp
+            )}
+          </div>
         </div>
         <div>
-          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Giri analizzati</div>
-          <div className="text-ink">{summary.lapsAnalysed}</div>
+          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+            {isReal ? "RPM medio cambiata ↑" : "Giri analizzati"}
+          </div>
+          <div className="text-ink">
+            {isReal ? fmt(summary.shiftUpRpmAvg, 0) : summary.lapsAnalysed}
+          </div>
         </div>
       </div>
 
@@ -103,7 +125,6 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
         </p>
       </div>
 
-
       {/* Thresholds declaration */}
       <div className="border border-ink/15 bg-card p-3">
         <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -118,11 +139,20 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
             Soglia over-rev: <span className="tabular-nums">{fmt(thresholds.overRevThreshold, 0)}</span> rpm
             {" "}= quantile {(thresholds.overRevQuantile * 100).toFixed(1)}% della distribuzione RPM nello stint.
           </li>
-          <li>
-            Drop minimo cambiata stimata: <span className="tabular-nums">{fmt(thresholds.shiftDropAbs, 0)}</span> rpm
-            {" "}= {(thresholds.shiftDropFrac * 100).toFixed(0)}% di RPM max di stint, calo entro ≤ 1 s
-            {summary.hasThrottle ? " e con throttle in trazione" : ""}.
-          </li>
+          {!isReal && (
+            <li>
+              Drop minimo cambiata stimata: <span className="tabular-nums">{fmt(thresholds.shiftDropAbs, 0)}</span> rpm
+              {" "}= {(thresholds.shiftDropFrac * 100).toFixed(0)}% di RPM max di stint, calo entro ≤ 1 s
+              {summary.hasThrottle ? " e con throttle in trazione" : ""}.
+            </li>
+          )}
+          {isReal && (
+            <li>
+              Cambiate: derivate dalle transizioni del canale marcia (<span className="font-bold">telemetria reale</span>),
+              nessuna soglia inventata.
+              {summary.hasPaddles && " Canali paddle up/down rilevati (metadato informativo)."}
+            </li>
+          )}
           {summary.hasThrottle && (
             <li>
               Trazione: campioni con throttle ≥ {(thresholds.throttleHighFrac * 100).toFixed(0)}% del picco throttle del giro.
@@ -130,6 +160,36 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
           )}
         </ul>
       </div>
+
+      {/* Gear distribution (real telemetry only) */}
+      {isReal && gearDistribution.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Distribuzione marce sullo stint (tempo per marcia)
+          </h4>
+          <div className="grid grid-cols-1 gap-1 border border-ink/15 bg-card p-3 font-mono text-[11px] sm:grid-cols-2 lg:grid-cols-3">
+            {gearDistribution.map((g) => {
+              const barPct = maxGearFrac > 0 ? (g.fraction / maxGearFrac) * 100 : 0;
+              return (
+                <div key={g.gear} className="flex items-center gap-2">
+                  <span className="w-10 text-muted-foreground">
+                    {g.gear === 0 ? "N" : `M${g.gear}`}
+                  </span>
+                  <div className="relative h-3 flex-1 border border-ink/20 bg-card">
+                    <div className="h-full bg-ink/70" style={{ width: `${barPct}%` }} />
+                  </div>
+                  <span className="w-20 text-right tabular-nums text-ink">
+                    {fmtPct(g.fraction, 1)}
+                  </span>
+                  <span className="w-16 text-right tabular-nums text-muted-foreground">
+                    {g.seconds.toFixed(1)}s
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Per-lap table */}
       <div className="space-y-2">
@@ -148,8 +208,18 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
                 </TableHead>
                 <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">% &gt; alto</TableHead>
                 <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Over-rev</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Cambiate stim.</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Drop medio</TableHead>
+                {isReal ? (
+                  <>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">↑</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">↓</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">RPM ↑ medio</TableHead>
+                  </>
+                ) : (
+                  <>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Cambiate stim.</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Drop medio</TableHead>
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -174,8 +244,18 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
                     <TableCell className={`text-right font-mono text-xs tabular-nums ${r.overRevs > 0 ? "text-race-red font-bold" : ""}`}>
                       {r.overRevs}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{r.shiftsEstimated}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.shiftDropAvg, 0)}</TableCell>
+                    {isReal ? (
+                      <>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{r.shiftsUp}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{r.shiftsDown}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.shiftUpRpmAvg, 0)}</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{r.shiftsUp}</TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(r.shiftDropAvg, 0)}</TableCell>
+                      </>
+                    )}
                   </TableRow>
                 );
               })}
@@ -221,10 +301,23 @@ export function EngineUsagePanel({ file, laps }: { file: LdFile; laps: LapRow[] 
         soglie qui sopra sono <span className="font-bold">derivate dai dati
         dello stint</span> e non da limiti assoluti del motore (non disponibili
         nel file). Gli <span className="font-bold">over-rev</span> sono picchi
-        statistici rispetto al regime tipico, non allarmi di danno motore. Le{" "}
-        <span className="font-bold">cambiate</span> sono stime da drop di RPM
-        in assenza di canale marcia: eventi spuri (chiusure gas, downshift)
-        possono essere inclusi. Il giudizio resta all'ingegnere.
+        statistici rispetto al regime tipico, non allarmi di danno motore.
+        {isReal ? (
+          <>
+            {" "}Le <span className="font-bold">cambiate</span> sono
+            telemetria reale: ogni transizione del canale marcia
+            (<code>ecu gear</code>) è una cambiata, classificata up/down dal
+            segno del delta. Il regime medio di cambiata ↑ indica a che RPM il
+            pilota sale di marcia (uso dell'arco di coppia).
+          </>
+        ) : (
+          <>
+            {" "}Le <span className="font-bold">cambiate</span> sono stime da
+            drop di RPM in <span className="font-bold">assenza del canale
+            marcia</span>: eventi spuri (chiusure gas, downshift) possono
+            essere inclusi. Il giudizio resta all'ingegnere.
+          </>
+        )}
         {!summary.hasThrottle && (
           <>
             {" "}Canale throttle assente: il regime medio è calcolato sull'intero
