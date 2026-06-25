@@ -24,6 +24,7 @@ import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsisten
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
+import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
 
 import {
   Table,
