@@ -67,7 +67,7 @@ export interface LapRow {
   tyres: LapTempCorner;
 }
 
-export type SetupChannelKey = "brkbias" | "mappos" | "tc";
+export type SetupChannelKey = "brkbias" | "mappos" | "tc" | "tcLat" | "tcLon" | "tcWet";
 
 export interface SetupChange {
   id: string;
@@ -77,6 +77,12 @@ export interface SetupChange {
   tSec: number;
   prev: number;
   next: number;
+  /**
+   * True for channels whose value is a 0/1 mode flag (e.g. TC Wet). The
+   * renderer should format the transition as "attivata" / "disattivata"
+   * instead of showing the raw numeric levels.
+   */
+  binaryState?: boolean;
 }
 
 export interface LapCoherence {
@@ -126,7 +132,11 @@ export interface StintAnalysis {
     tyres: boolean;
     brkbias: boolean;
     mappos: boolean;
+    /** True iff any TC configuration channel is available (lat / lon / wet). */
     tc: boolean;
+    tcLat: boolean;
+    tcLon: boolean;
+    tcWet: boolean;
   };
 }
 
