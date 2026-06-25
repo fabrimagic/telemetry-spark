@@ -546,7 +546,9 @@ export function buildLapComparison(
   file: LdFile,
   refLap: LapRow | null,
   selLap: LapRow | null,
+  opts?: { cornerIndicatorThreshold?: number },
 ): LapComparisonResult {
+
   const channels: Partial<Record<ComparisonChannelKey, Channel>> = {};
   const availability: Partial<Record<ComparisonChannelKey, boolean>> = {};
   for (const key of CHANNEL_KEYS) {
