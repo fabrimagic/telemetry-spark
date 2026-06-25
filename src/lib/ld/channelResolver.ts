@@ -158,6 +158,22 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
     eq("brake pressure front"), eq("brake press f"), eq("brake press front"),
     eq("pbrake front"), re(/^brake\s*press(ure)?\s*(f|fr|front)$/i),
   ],
+
+  // ---- IMU / chassis accelerations (G) ----
+  // Primary: 50 Hz "sclu acc x/y" (verified ranges: long ~−1.6…+0.9 G,
+  // lat ~±1.5 G). Fallback: 100 Hz IMU "imu accx/accy". Do NOT include
+  // "acc z" (vertical, gravity) — not used by the G-G diagram.
+  accLong: [
+    eq("sclu acc x"), eq("acc x"), eq("accel x"),
+    eq("longitudinal acceleration"), eq("long acc"), eq("acc long"),
+    eq("imu accx"), eq("imu acc x"),
+  ],
+  accLat: [
+    eq("sclu acc y"), eq("acc y"), eq("accel y"),
+    eq("lateral acceleration"), eq("lat acc"), eq("acc lat"),
+    eq("imu accy"), eq("imu acc y"),
+  ],
+
   brakePressRear: [
     eq("log pbrake r"), eq("pbrake r"),
     eq("brake pressure rear"), eq("brake press r"), eq("brake press rear"),
