@@ -90,6 +90,12 @@ export type LogicalKey =
   // Ride height — RAW / not calibrated (non-physical range, zero zones)
   | "rideHeight.fl" | "rideHeight.fr" | "rideHeight.rl" | "rideHeight.rr"
 
+  // Wheel speed (km/h, 100 Hz). Front wheels are non-driven (free-rolling) on
+  // this RWD car and read true vehicle speed; rear wheels are driven and
+  // can spin up under traction. Used by the traction-slip engine to COMPUTE
+  // slip (no native slip channel — abs Slip * is null and unusable).
+  | "wheelSpeedFL" | "wheelSpeedFR" | "wheelSpeedRL" | "wheelSpeedRR"
+
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
   | "tyreTemp.fl"      | "tyreTemp.fr"      | "tyreTemp.rl"      | "tyreTemp.rr"
@@ -347,6 +353,12 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   "rideHeight.fr": [eq("log rideheight fr"), eq("ride height fr"), eq("rideheight fr")],
   "rideHeight.rl": [eq("log rideheight rl"), eq("ride height rl"), eq("rideheight rl")],
   "rideHeight.rr": [eq("log rideheight rr"), eq("ride height rr"), eq("rideheight rr")],
+
+  // ---- Wheel speed (100 Hz, km/h) ----
+  "wheelSpeedFL": [eq("abs speed fl"), eq("wheel speed fl"), eq("speed fl"), eq("vwheel fl")],
+  "wheelSpeedFR": [eq("abs speed fr"), eq("wheel speed fr"), eq("speed fr"), eq("vwheel fr")],
+  "wheelSpeedRL": [eq("abs speed rl"), eq("wheel speed rl"), eq("speed rl"), eq("vwheel rl")],
+  "wheelSpeedRR": [eq("abs speed rr"), eq("wheel speed rr"), eq("speed rr"), eq("vwheel rr")],
 
   "tyrePress.fl": TYRE_PRESS_CORNERS.fl,
   "tyrePress.fr": TYRE_PRESS_CORNERS.fr,
