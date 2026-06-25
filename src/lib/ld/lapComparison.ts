@@ -44,13 +44,18 @@ export type ComparisonChannelKey =
 export interface ResampledLap {
   /** Common uniform distance grid (m). */
   grid: Float32Array;
-  /** Per logical-channel resampled values aligned with `grid` (NaN where out of coverage). */
+  /** Per logical-channel resampled values aligned with `grid` (NaN where out of coverage).
+   *  `slip` is CALCULATED, not resolved from a physical channel. */
   series: Partial<Record<ComparisonChannelKey, Float32Array>>;
   /** Observed lap distance length (m) — last monotonic distance value. */
   lapLength: number;
   /** Coverage fraction over the reference lap length (1 = full). */
   coverage: number;
+  /** Per-grid-point flag (1=in corner, 0=straight) for the calculated slip.
+   *  Present only when wheel speeds are available and a threshold was passed. */
+  slipInCorner?: Uint8Array;
 }
+
 
 export interface BrakingZone {
   /** Progressive index, 1-based. */
