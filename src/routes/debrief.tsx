@@ -1312,6 +1312,186 @@ function SuspensionTravelTrace({
 }
 
 
+/* Traction Slip (calculated) vs Lap Distance — drill-down for one lap.
+ * Slip = ((v_rear - v_front) / v_front) · 100, computed via the shared
+ * tractionSlip formula (single source of truth). The in-corner threshold is
+ * the SAME stint-wide value used by the aggregate Traction Slip panel.
+ * Anti-hallucination: slip is CALCULATED (not a raw channel, not TC
+ * intervention). In curva il valore è meno affidabile per via della
+ * differenza geometrica tra rotaie ant/post: i tratti in curva sono
+ * evidenziati con bande tratteggiate di sfondo. Se le quattro velocità
+ * ruota non sono disponibili, il grafico viene omesso (degrado neutro). */
+function TractionSlipTrace({
+  file,
+  lapCh,
+  lap,
+  laps,
+  xMax,
+  cursorDist,
+  onCursorDistChange,
+}: {
+  file: LdFile;
+  lapCh: Channel;
+  lap: LapRow;
+  laps: LapRow[];
+  xMax: number;
+  cursorDist: number | null;
+  onCursorDistChange?: (d: number | null) => void;
+}) {
+  const cornerThr = deriveCornerThreshold(file, laps);
+  const samples = computeSlipSamples(file, lap, cornerThr);
+  if (!samples || samples.length === 0) return null;
+
+  // Map each (t, slip, inCorner) → (lapDistance, slip, inCorner).
+  const ldFreq = lapCh.freq;
+  const ldLen = lapCh.values.length;
+  const raw: { x: number; y: number; corner: boolean }[] = [];
+  for (const s of samples) {
+    const j = Math.min(ldLen - 1, Math.max(0, Math.floor(s.t * ldFreq)));
+    const d = lapCh.values[j];
+    if (!Number.isFinite(d) || d < 0) continue;
+    raw.push({ x: d, y: s.slip, corner: s.inCorner });
+  }
+  if (raw.length === 0) return null;
+
+  // Peak-preserving decimation (~700 points) consistent with the other
+  // traces. We carry the worst-case corner flag through the bucket so that
+  // the highlight is conservative (any in-corner sample taints the bucket).
+  const target = 700;
+  const data: { x: number; y: number; corner: boolean }[] = [];
+  if (raw.length <= target) {
+    data.push(...raw);
+  } else {
+    const buckets = target;
+    const step = raw.length / buckets;
+    for (let b = 0; b < buckets; b++) {
+      const s0 = Math.floor(b * step);
+      const s1 = Math.min(raw.length, Math.floor((b + 1) * step));
+      if (s1 <= s0) continue;
+      let sum = 0;
+      let anyCorner = false;
+      for (let i = s0; i < s1; i++) {
+        sum += raw[i].y;
+        if (raw[i].corner) anyCorner = true;
+      }
+      const mean = sum / (s1 - s0);
+      let bestI = s0, bestAbs = -Infinity;
+      for (let i = s0; i < s1; i++) {
+        const dev = Math.abs(raw[i].y - mean);
+        if (dev > bestAbs) { bestAbs = dev; bestI = i; }
+      }
+      data.push({ x: raw[bestI].x, y: raw[bestI].y, corner: anyCorner });
+    }
+  }
+  data.sort((a, b) => a.x - b.x);
+
+  // Collapse consecutive in-corner buckets into contiguous shaded intervals
+  // (drawn as ReferenceArea bands) to flag less-reliable stretches.
+  const cornerBands: { x1: number; x2: number }[] = [];
+  let bandStart: number | null = null;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].corner) {
+      if (bandStart === null) bandStart = data[i].x;
+    } else if (bandStart !== null) {
+      cornerBands.push({ x1: bandStart, x2: data[i].x });
+      bandStart = null;
+    }
+  }
+  if (bandStart !== null) cornerBands.push({ x1: bandStart, x2: data[data.length - 1].x });
+
+  return (
+    <div className="border border-ink/20 bg-card/40 p-2">
+      <div className="mb-1 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-widest">
+        <span className="text-foreground">Traction Slip · calcolato</span>
+        <span className="text-muted-foreground">%</span>
+      </div>
+      <div className="h-32 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+            onMouseMove={(s: { activeLabel?: number | string }) => {
+              if (!onCursorDistChange) return;
+              const v = s?.activeLabel;
+              const n = typeof v === "number" ? v : v !== undefined ? Number(v) : NaN;
+              if (Number.isFinite(n)) onCursorDistChange(n);
+            }}
+            onMouseLeave={() => onCursorDistChange?.(null)}
+          >
+            <CartesianGrid stroke="hsl(var(--ink) / 0.1)" strokeDasharray="2 2" />
+            <XAxis
+              type="number"
+              dataKey="x"
+              domain={[0, Math.ceil(xMax)]}
+              tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              stroke="hsl(var(--ink) / 0.3)"
+            />
+            <YAxis
+              tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              stroke="hsl(var(--ink) / 0.3)"
+              width={42}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--ink) / 0.3)",
+                borderRadius: 0,
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 11,
+              }}
+              labelFormatter={(v: number) => `d ${v.toFixed(0)} m`}
+              formatter={(v: number, _name: string, p: { payload?: { corner?: boolean } }) => [
+                `${Number.isFinite(v) ? v.toFixed(2) : "—"} %${p?.payload?.corner ? " · in curva (meno affidabile)" : ""}`,
+                "slip",
+              ]}
+            />
+            {cornerBands.map((b, i) => (
+              <ReferenceArea
+                key={i}
+                x1={b.x1}
+                x2={b.x2}
+                fill="hsl(var(--ink) / 0.08)"
+                stroke="hsl(var(--ink) / 0.25)"
+                strokeDasharray="2 3"
+                ifOverflow="hidden"
+              />
+            ))}
+            {cursorDist !== null && Number.isFinite(cursorDist) && (
+              <ReferenceLine
+                x={cursorDist}
+                stroke="hsl(var(--race-red))"
+                strokeOpacity={0.6}
+                strokeDasharray="2 2"
+                ifOverflow="hidden"
+              />
+            )}
+            <ReferenceLine y={0} stroke="hsl(var(--ink) / 0.4)" />
+            <Line
+              type="monotone"
+              dataKey="y"
+              stroke="#7a3d8a"
+              strokeWidth={1.4}
+              dot={false}
+              isAnimationActive={false}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-1 font-mono text-[10px] leading-snug text-muted-foreground">
+        Slip <b>calcolato</b> dalle velocità ruota
+        ((v<sub>post</sub>−v<sub>ant</sub>)/v<sub>ant</sub>·100). Bande
+        tratteggiate = tratti in curva, meno affidabili (contaminazione
+        geometrica). Non è l'intervento del Traction Control.
+      </p>
+    </div>
+  );
+}
+
+
+
+
+
 /* ============ Coherence status banner ============ */
 
 function CoherenceStatus({ coherence }: { coherence: LapCoherence }) {
