@@ -248,6 +248,80 @@ function SuspensionOverlay({ result }: { result: LapComparisonResult }) {
   );
 }
 
+/* Tyre temperature overlay — selectable wheel (FL/FR/RL/RR), modelled 1:1
+ * on SuspensionOverlay. Tyre temp is a direct physical channel (TPMS) at
+ * typically ~1 Hz, so the trace appears coarse vs high-rate channels; we
+ * do not interpolate to fake a resolution that is not in the data. */
+const TYRE_TEMP_WHEELS: { key: ComparisonChannelKey; label: string }[] = [
+  { key: "tyreTempFL", label: "FL" },
+  { key: "tyreTempFR", label: "FR" },
+  { key: "tyreTempRL", label: "RL" },
+  { key: "tyreTempRR", label: "RR" },
+];
+
+function TyreTempOverlay({ result }: { result: LapComparisonResult }) {
+  const available = TYRE_TEMP_WHEELS.filter((w) => result.availability[w.key]);
+  const [wheel, setWheel] = useState<ComparisonChannelKey | null>(
+    available[0]?.key ?? null,
+  );
+  if (available.length === 0) {
+    return (
+      <div>
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Temperatura gomme vs distanza (m)
+        </div>
+        <Notice>Canali temperatura gomme non disponibili.</Notice>
+      </div>
+    );
+  }
+  const active = wheel && available.some((w) => w.key === wheel) ? wheel : available[0].key;
+  const activeLabel = TYRE_TEMP_WHEELS.find((w) => w.key === active)?.label ?? "";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Temperatura gomme · {activeLabel} vs distanza (m)
+        </span>
+        <div className="flex gap-1">
+          {TYRE_TEMP_WHEELS.map((w) => {
+            const enabled = available.some((a) => a.key === w.key);
+            const isActive = active === w.key;
+            return (
+              <button
+                key={w.key}
+                type="button"
+                disabled={!enabled}
+                onClick={() => setWheel(w.key)}
+                className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest transition-colors ${
+                  isActive
+                    ? "border-ink bg-ink text-background"
+                    : enabled
+                      ? "border-ink/30 text-foreground hover:border-ink/60"
+                      : "border-ink/10 text-muted-foreground/40 cursor-not-allowed"
+                }`}
+              >
+                {w.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <OverlayChartBody
+        result={result}
+        channel={active}
+        unit="°C"
+        yDecimals={1}
+      />
+      <p className="mt-1 font-mono text-[10px] leading-relaxed text-muted-foreground">
+        Temperatura gomme (TPMS) campionata a bassa frequenza (~1 Hz): la
+        traccia appare come una spezzata grossolana, è corretto così. Le ruote
+        senza sensore trasmittente non sono mostrate nel selettore.
+      </p>
+    </div>
+  );
+}
+
+
 function OverlayChartBody({
   result,
   channel,
@@ -470,6 +544,8 @@ export function LapComparisonPanel({
           title="Slip in trazione (calcolato) vs distanza (m)"
           yDecimals={2}
         />
+        <TyreTempOverlay result={result} />
+
       </div>
 
       <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
