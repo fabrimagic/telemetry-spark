@@ -361,10 +361,18 @@ export function LapComparisonPanel({
     [laps, selectedLap],
   );
 
-  const result = useMemo(
-    () => buildLapComparison(file, refLap, selLap),
-    [file, refLap, selLap],
+  // Same in-corner threshold as the aggregate Traction Slip panel — derived
+  // stint-wide over valid laps. Drives the slip overlay reliability flag.
+  const cornerIndicatorThreshold = useMemo(
+    () => deriveCornerThreshold(file, laps),
+    [file, laps],
   );
+
+  const result = useMemo(
+    () => buildLapComparison(file, refLap, selLap, { cornerIndicatorThreshold }),
+    [file, refLap, selLap, cornerIndicatorThreshold],
+  );
+
 
   if (selectedLap === "all") {
     return (
