@@ -119,6 +119,13 @@ const CHANNEL_KEYS: ComparisonChannelKey[] = [
   "suspTravelFR",
   "suspTravelRL",
   "suspTravelRR",
+  "wheelSpeedFL",
+  "wheelSpeedFR",
+  "wheelSpeedRL",
+  "wheelSpeedRR",
+  // "slip" is intentionally NOT in CHANNEL_KEYS: it is a CALCULATED series
+  // (not a physical channel), derived after resampling from the four wheel
+  // speeds via tractionSlip.computeSlipOnGrid — single source of truth.
 ];
 
 /** Map a ComparisonChannelKey to the resolver's LogicalKey.
@@ -129,9 +136,14 @@ function toLogicalKey(key: ComparisonChannelKey): LogicalKey {
     case "suspTravelFR": return "suspTravel.fr";
     case "suspTravelRL": return "suspTravel.rl";
     case "suspTravelRR": return "suspTravel.rr";
+    case "slip":
+      // Should never be requested via the resolver path. Return any logical
+      // key as a no-op; the slip series is computed, not resolved.
+      return "speed";
     default: return key as LogicalKey;
   }
 }
+
 
 /* ============================ Helpers ============================ */
 
