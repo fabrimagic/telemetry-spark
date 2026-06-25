@@ -1154,11 +1154,11 @@ function SuspensionTravelTrace({
   if (wheels.length === 0) return null;
 
   // Merge into a single dataset keyed by x; each wheel gets its own y-field.
-  type Row = { x: number } & Partial<Record<string, number>>;
+  type Row = Record<string, number>;
   const map = new Map<number, Row>();
   for (const w of wheels) {
     for (const p of w.data) {
-      const row = map.get(p.x) ?? { x: p.x };
+      const row = map.get(p.x) ?? ({ x: p.x } as Row);
       row[w.label] = p.y;
       map.set(p.x, row);
     }
