@@ -83,6 +83,18 @@ export interface UnmappedChannelEntry {
   min: number;
   max: number;
   avg: number;
+  /** Toolset-declared quantity kind (e.g. "Pressure", "Temperature"). */
+  toolsetQuantity?: string;
+  /** Toolset-declared user-facing unit (preferred when .ld unit is empty). */
+  toolsetUnit?: string;
+  /** Toolset-declared physical minimum (only when range is significant). */
+  toolsetMin?: number;
+  /** Toolset-declared physical maximum (only when range is significant). */
+  toolsetMax?: number;
+  /** Human description from the toolset channel catalogue. */
+  toolsetDescription?: string;
+  /** True when ANY toolset metadata is present for this channel. */
+  hasToolsetMeta: boolean;
 }
 
 export interface ChannelMappingReport {
@@ -98,6 +110,9 @@ export interface ChannelMappingReport {
     unmappedWithData: number;
     unmappedConstant: number;
     unmappedEmpty: number;
+    /** Among "data" unmapped channels: how many carry toolset metadata. */
+    unmappedWithDataDecipherable: number;
+    unmappedWithDataOpaque: number;
   };
 }
 
@@ -109,6 +124,35 @@ function classifyUnmapped(c: Channel): UnmappedStatus {
   if (Math.abs(c.max - c.min) < FLAT_TOL) return "constant";
   return "data";
 }
+
+export interface ChannelMappingOptions {
+  toolsetMeta?: ToolsetDisplayMeta[];
+  toolsetChannels?: ToolsetChannelEntry[];
+}
+
+function buildMetaIndex(
+  toolsetMeta: ToolsetDisplayMeta[] | undefined,
+): Map<string, ToolsetDisplayMeta> {
+  const idx = new Map<string, ToolsetDisplayMeta>();
+  if (!toolsetMeta) return idx;
+  for (const m of toolsetMeta) idx.set(normName(m.sourceName), m);
+  return idx;
+}
+
+function buildDescriptionIndex(
+  toolsetChannels: ToolsetChannelEntry[] | undefined,
+): Map<string, string> {
+  const idx = new Map<string, string>();
+  if (!toolsetChannels) return idx;
+  for (const c of toolsetChannels) {
+    if (c.description && c.description.trim().length > 0) {
+      idx.set(normName(c.name), c.description.trim());
+    }
+  }
+  return idx;
+}
+
+
 
 
 export function buildChannelMapping(file: LdFile): ChannelMappingReport {
