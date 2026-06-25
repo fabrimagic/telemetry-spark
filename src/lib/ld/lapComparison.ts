@@ -27,7 +27,11 @@ export type ComparisonChannelKey =
   | "throttle"
   | "brakePressFront"
   | "brakePressRear"
-  | "steeringAngle";
+  | "steeringAngle"
+  | "suspTravelFL"
+  | "suspTravelFR"
+  | "suspTravelRL"
+  | "suspTravelRR";
 
 export interface ResampledLap {
   /** Common uniform distance grid (m). */
