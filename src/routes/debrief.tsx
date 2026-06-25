@@ -366,6 +366,8 @@ function DebriefPage() {
               <TabsTrigger value="consistency" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Driving Consistency</TabsTrigger>
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
               <TabsTrigger value="suspension" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Suspension &amp; Platform</TabsTrigger>
+              <TabsTrigger value="gg" className="rounded-none font-mono text-[10px] uppercase tracking-widest">G-G Diagram</TabsTrigger>
+
             </TabsList>
 
             <TabsContent value="weather" className="mt-4">
