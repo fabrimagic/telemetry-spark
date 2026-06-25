@@ -26,6 +26,8 @@ import { SuspensionPanel } from "@/components/telemetry/SuspensionPanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
+import { GGDiagramPanel } from "@/components/telemetry/GGDiagramPanel";
+
 
 import {
   Table,
