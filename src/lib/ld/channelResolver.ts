@@ -73,6 +73,10 @@ export type LogicalKey =
   | "engineWaterPressure"
   | "engineRailPressure"
   | "fuelPressure"
+  // Gearbox — engaged gear and paddle events
+  | "gear"
+  | "paddleUp"
+  | "paddleDown"
 
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
