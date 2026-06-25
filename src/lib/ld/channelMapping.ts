@@ -122,8 +122,13 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
     }
   }
 
+  // For classification we consider ALL non-mapped channels (including empty
+  // and constant ones), so the engineer sees the full picture. `isChannelUsable`
+  // is still used for the "usable" total.
   const usable: Channel[] = channels.filter(isChannelUsable);
-  const unmapped: UnmappedChannelEntry[] = usable
+  const usableIdx = new Set(usable.map((c) => c.idx));
+
+  const unmapped: UnmappedChannelEntry[] = channels
     .filter((c) => !mappedIdx.has(c.idx))
     .map((c) => ({
       name: c.name,
@@ -131,7 +136,26 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
       unit: c.unit,
       nSamples: c.nSamples,
       category: c.category,
+      status: classifyUnmapped(c),
+      min: c.min,
+      max: c.max,
+      avg: c.avg,
     }));
+
+  let unmappedWithData = 0;
+  let unmappedConstant = 0;
+  let unmappedEmpty = 0;
+  for (const u of unmapped) {
+    if (u.status === "data") unmappedWithData++;
+    else if (u.status === "constant") unmappedConstant++;
+    else unmappedEmpty++;
+  }
+
+  // "unmappedChannels" total counts only usable unmapped channels for
+  // backwards compatibility with the existing header ratio.
+  const unmappedUsableCount = unmapped.filter((u) => usableIdx.has(
+    channels.find((c) => c.name === u.name)?.idx ?? -1,
+  )).length;
 
   return {
     resolved,
@@ -142,7 +166,11 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
       resolvedKeys: resolved.length,
       usableChannels: usable.length,
       mappedChannels: mappedIdx.size,
-      unmappedChannels: unmapped.length,
+      unmappedChannels: unmappedUsableCount,
+      unmappedWithData,
+      unmappedConstant,
+      unmappedEmpty,
     },
   };
 }
+
