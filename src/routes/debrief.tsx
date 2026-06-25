@@ -465,12 +465,14 @@ function DebriefPage() {
                           <LapChannelTraces
                             file={file}
                             lap={selected}
+                            laps={laps}
                             refLap={!selected.isFastest ? laps.find((l) => l.isFastest) ?? null : null}
                             cursorDist={cursorDist}
                             onCursorDistChange={setCursorDist}
                           />
                         </Section>
                       </div>
+
 
                       {/* Per-lap G-G */}
                       <div className="col-span-12 min-w-0 xl:col-span-5">
