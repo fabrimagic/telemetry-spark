@@ -596,7 +596,20 @@ function DebriefPage() {
                 <SuspensionPanel file={file} laps={laps} />
               </PaperPanel>
             </TabsContent>
+
+            <TabsContent value="gg" className="mt-4">
+              <PaperPanel eyebrow="Dynamics" title="G-G Diagram">
+                <GGDiagramPanel
+                  file={file}
+                  laps={laps.filter((l) => l.isValidLap)}
+                  mode="density"
+                  size={420}
+                  subtitle="Aggregato stint · solo giri validi"
+                />
+              </PaperPanel>
+            </TabsContent>
           </Tabs>
+
         </div>
 
 
