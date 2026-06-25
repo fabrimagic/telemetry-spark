@@ -266,33 +266,34 @@ export function LapComparisonPanel({
           title="Velocità vs distanza (m)"
           yDecimals={0}
         />
-        {availability.throttle && (
-          <OverlayChart
-            result={result}
-            channel="throttle"
-            unit="%"
-            title="Throttle vs distanza (m)"
-            yDecimals={0}
-          />
-        )}
-        {availability.brakePressFront && (
-          <OverlayChart
-            result={result}
-            channel="brakePressFront"
-            unit="bar"
-            title="Brake Press F vs distanza (m)"
-            yDecimals={1}
-          />
-        )}
-        {availability.brakePressRear && (
-          <OverlayChart
-            result={result}
-            channel="brakePressRear"
-            unit="bar"
-            title="Brake Press R vs distanza (m)"
-            yDecimals={1}
-          />
-        )}
+        <OverlayChart
+          result={result}
+          channel="throttle"
+          unit="%"
+          title="Acceleratore vs distanza (m)"
+          yDecimals={0}
+        />
+        <OverlayChart
+          result={result}
+          channel="brakePressFront"
+          unit="bar"
+          title="Brake Press F vs distanza (m)"
+          yDecimals={1}
+        />
+        <OverlayChart
+          result={result}
+          channel="brakePressRear"
+          unit="bar"
+          title="Brake Press R vs distanza (m)"
+          yDecimals={1}
+        />
+        <OverlayChart
+          result={result}
+          channel="steeringAngle"
+          unit="°"
+          title="Angolo di sterzo vs distanza (m)"
+          yDecimals={1}
+        />
       </div>
 
       <div>
