@@ -883,7 +883,7 @@ interface TraceSpec {
 }
 
 const TRACE_SPECS: TraceSpec[] = [
-  { key: "speed", label: "Ground Speed", unit: "km/h", logical: "speed",           color: "hsl(var(--race-red))", withRef: true, decimals: 1 },
+  { key: "speed", label: "Ground Speed", unit: "km/h", logical: "speed",           color: "#d40000", withRef: true, decimals: 1 },
   { key: "rpm",   label: "RPM",          unit: "rpm",  logical: "rpm",             color: "#c97a00", decimals: 0 },
   { key: "aps",   label: "Throttle",     unit: "%",    logical: "throttle",        color: "#2a7a2a", decimals: 1 },
   { key: "pbf",   label: "Brake Press F", unit: "bar", logical: "brakePressFront", color: "#1f4a8a", decimals: 1 },
