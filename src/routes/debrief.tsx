@@ -44,12 +44,18 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  computeSlipSamples,
+  deriveCornerThreshold,
+} from "@/lib/ld/tractionSlip";
+
 
 
 function lapRowToLap(r: LapRow): Lap {
