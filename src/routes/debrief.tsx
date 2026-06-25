@@ -656,6 +656,34 @@ function DebriefPage() {
 }
 
 /* ============ small subcomponents ============ */
+
+function isTcChange(c: SetupChange): boolean {
+  return c.channel === "tcLat" || c.channel === "tcLon" || c.channel === "tcWet" || c.channel === "tc";
+}
+
+function formatSetupTransition(c: SetupChange): string {
+  if (c.binaryState) {
+    const toOn = Math.round(c.next) === 1;
+    return toOn ? "Modalità wet attivata" : "Modalità wet disattivata";
+  }
+  return `${fmt(c.prev, 2)} → ${fmt(c.next, 2)}`;
+}
+
+function SetupChannelBadge({ change }: { change: SetupChange }) {
+  const isTc = isTcChange(change);
+  const label = isTc ? "TC" : change.channel === "brkbias" ? "BIAS" : "MAP";
+  const cls = isTc
+    ? "border-amber-500 bg-amber-500/15 text-amber-500"
+    : change.channel === "brkbias"
+      ? "border-sky-500 bg-sky-500/15 text-sky-500"
+      : "border-emerald-500 bg-emerald-500/15 text-emerald-500";
+  return (
+    <Badge className={`rounded-none border font-mono text-[9px] uppercase tracking-widest ${cls}`}>
+      {label}
+    </Badge>
+  );
+}
+
 function TH({ children, align }: { children: ReactNode; align?: "right" }) {
   return (
     <TableHead
