@@ -470,6 +470,22 @@ function DebriefPage() {
                         </Section>
                       </div>
 
+                      {/* Per-lap G-G */}
+                      <div className="col-span-12 min-w-0 xl:col-span-5">
+                        <Section title="G-G (questo giro)">
+                          <GGDiagramPanel
+                            file={file}
+                            laps={[selected]}
+                            mode="scatter"
+                            size={280}
+                            compact
+                            engineOptions={{ maxScatter: 1500 }}
+                            subtitle={`Lap ${selected.lap} · scatter decimato`}
+                          />
+                        </Section>
+                      </div>
+
+
                       {/* ABS hits */}
                       {has.abs && (
                         <div className="col-span-12 min-w-0 xl:col-span-6 2xl:col-span-4">
