@@ -5,8 +5,10 @@
 // physical channels in the file remain unused. No verdicts — only facts.
 //
 // Intended for onboarding new cars / firmwares: unmapped physical channels
-// are candidates for new aliases in the channel resolver; unresolved
-// logical keys flag features that will be degraded for this file.
+// with real data AND toolset metadata are the most immediate candidates
+// for new aliases in the channel resolver (we know what they are);
+// unmapped channels with data but NO toolset metadata require external
+// knowledge of the firmware before they can be exploited.
 
 import { useMemo, useState } from "react";
 import {
@@ -16,6 +18,10 @@ import {
 } from "@/lib/ld/channelMapping";
 
 import type { LdFile } from "@/lib/ld/types";
+import type {
+  ToolsetChannelEntry,
+  ToolsetDisplayMeta,
+} from "@/lib/toolset/types";
 import {
   Table,
   TableBody,
@@ -27,15 +33,18 @@ import {
 
 interface Props {
   file: LdFile;
+  toolsetMeta?: ToolsetDisplayMeta[];
+  toolsetChannels?: ToolsetChannelEntry[];
 }
 
-export function ChannelMappingPanel({ file }: Props) {
+export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Props) {
   const report: ChannelMappingReport = useMemo(
-    () => buildChannelMapping(file),
-    [file],
+    () => buildChannelMapping(file, { toolsetMeta, toolsetChannels }),
+    [file, toolsetMeta, toolsetChannels],
   );
   const [showUnmapped, setShowUnmapped] = useState(false);
   const [unmappedFilter, setUnmappedFilter] = useState("");
+
 
   // Status ordering: data first (actionable), then constant, then empty.
   const STATUS_ORDER: Record<UnmappedStatus, number> = {
