@@ -73,6 +73,10 @@ export type LogicalKey =
   | "engineWaterPressure"
   | "engineRailPressure"
   | "fuelPressure"
+  // Gearbox — engaged gear and paddle events
+  | "gear"
+  | "paddleUp"
+  | "paddleDown"
 
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
@@ -273,6 +277,23 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
     eq("ecu pfuel"), eq("pfuel"),
     eq("fuel pressure"), eq("fuel press"),
     inc("fuel pressure"),
+  ],
+
+  // ---- Gearbox ----
+  // Engaged gear (0..N, -1 = sentinel). Must NOT match gearbox temperature
+  // channels (e.g. "ecu tgear", "gear temp"): use only exact matches and a
+  // tightly-constrained regex.
+  gear: [
+    eq("ecu gear"), eq("gear"), eq("current gear"), eq("engaged gear"),
+    re(/^(ecu\s+)?gear(\s+pos(ition)?)?$/i),
+  ],
+  paddleUp: [
+    eq("ecu b padup"), eq("paddle up"), eq("padup"),
+    eq("shift up"), eq("upshift"),
+  ],
+  paddleDown: [
+    eq("ecu b paddn"), eq("paddle down"), eq("paddn"),
+    eq("shift down"), eq("downshift"),
   ],
 
 
