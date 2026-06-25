@@ -101,16 +101,23 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
         Strumento diagnostico per adattare l'app a file/vetture nuove. Mostra
         come i <em>logical key</em> dell'applicazione si risolvono sui canali
         fisici del file caricato. Tra i canali non mappati, solo quelli{" "}
-        <strong>con dati</strong> (min ≠ max, valori finiti) sono candidati reali
-        per nuovi alias nel resolver: l'app potrebbe sfruttarli ma ancora non li
-        cerca. I canali <strong>costanti</strong> (min ≡ max, o min/max/avg NaN)
-        e quelli <strong>vuoti</strong> (nessun campione) non porterebbero
-        valore anche se mappati, perché non contengono segnale utile. La
+        <strong>con dati</strong> (min ≠ max, valori finiti) sono candidati
+        reali per nuovi alias nel resolver. I più immediati sono quelli che
+        hanno anche <strong>metadati del toolset</strong> (descrizione,
+        quantità, unità, range): sai già cosa rappresentano. Quelli con dati
+        ma senza metadati richiedono conoscenza esterna del firmware prima di
+        poter essere sfruttati. I canali <strong>costanti</strong>{" "}
+        (min ≡ max, o min/max/avg NaN) e quelli <strong>vuoti</strong>{" "}
+        (nessun campione) non porterebbero valore anche se mappati. La
         classificazione usa solo le statistiche già cachate dal parser
-        (min/max/avg/nSamples), nessuna soglia inventata. Limite dichiarato:
-        non distinguiamo "popolato ma quasi sempre nullo" da min/max soli — un
+        (min/max/avg/nSamples) e i metadati già prodotti dal toolset
+        (ToolsetDisplayMeta), nessuna inferenza. Limite dichiarato: non
+        distinguiamo "popolato ma quasi sempre nullo" da min/max soli — un
         singolo campione non-zero basta a far apparire il canale "con dati".
+        Il pannello resta diagnostico: non mappa nulla automaticamente,
+        fornisce le informazioni per decidere.
       </p>
+
 
 
       {/* ---------- Resolved logical keys ---------- */}
