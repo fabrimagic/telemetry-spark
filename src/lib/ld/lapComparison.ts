@@ -265,6 +265,7 @@ function resampleLap(
   grid: Float32Array,
   lapCh: Channel,
   channels: Partial<Record<ComparisonChannelKey, Channel>>,
+  cornerIndicatorThreshold?: number,
 ): ResampledLap {
   const lapLength = estimateLapLength(lapCh, lap.tStart, lap.tEnd);
   const series: Partial<Record<ComparisonChannelKey, Float32Array>> = {};
@@ -274,10 +275,29 @@ function resampleLap(
     const { d, y } = buildDistanceSeries(ch, lapCh, lap.tStart, lap.tEnd);
     series[key] = interpolateToGrid(d, y, grid);
   }
+  // CALCULATED slip (not a physical channel): derived from the four resampled
+  // wheel speeds via the shared formula in slipFormula.ts. Reuses the exact
+  // same threshold (passed in from the stint-wide derivation) and the exact
+  // same V_MIN_KMH guard as the aggregate Traction Slip panel.
+  let slipInCorner: Uint8Array | undefined;
+  if (cornerIndicatorThreshold !== undefined) {
+    const slipRes = computeSlipOnGrid(
+      series.wheelSpeedFL,
+      series.wheelSpeedFR,
+      series.wheelSpeedRL,
+      series.wheelSpeedRR,
+      cornerIndicatorThreshold,
+    );
+    if (slipRes) {
+      series.slip = slipRes.slip;
+      slipInCorner = slipRes.inCorner;
+    }
+  }
   const gridLength = grid[grid.length - 1] || 0;
   const coverage = gridLength > 0 ? Math.min(1, lapLength / gridLength) : 0;
-  return { grid, series, lapLength, coverage };
+  return { grid, series, lapLength, coverage, slipInCorner };
 }
+
 
 /* ============================ Braking zones ============================ */
 
