@@ -19,6 +19,8 @@
 import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
 import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
+import { computeSlipOnGrid } from "@/lib/ld/slipFormula";
+
 
 /* ============================ Public types ============================ */
 
