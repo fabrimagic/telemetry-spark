@@ -8,7 +8,7 @@
 //  - When a channel is missing, the relative trace / metric is omitted
 //    with a neutral placeholder; no fake zeros, no invented thresholds.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -294,6 +294,7 @@ export function LapComparisonPanel({
           title="Angolo di sterzo vs distanza (m)"
           yDecimals={1}
         />
+        <SuspensionOverlay result={result} />
       </div>
 
       <div>
