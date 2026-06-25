@@ -126,7 +126,7 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
   // and constant ones), so the engineer sees the full picture. `isChannelUsable`
   // is still used for the "usable" total.
   const usable: Channel[] = channels.filter(isChannelUsable);
-  const usableIdx = new Set(usable.map((c) => c.idx));
+
 
   const unmapped: UnmappedChannelEntry[] = channels
     .filter((c) => !mappedIdx.has(c.idx))
