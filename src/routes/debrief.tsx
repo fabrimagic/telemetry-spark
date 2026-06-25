@@ -354,8 +354,7 @@ function DebriefPage() {
               <TabsTrigger value="tyres" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Tyre Evolution</TabsTrigger>
               <TabsTrigger value="brakes" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Brake Management</TabsTrigger>
               <TabsTrigger value="engine" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Engine Information</TabsTrigger>
-              <TabsTrigger value="lapDetail" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Lap Detail</TabsTrigger>
-              <TabsTrigger value="lapCompare" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Lap Comparison</TabsTrigger>
+              <TabsTrigger value="lapAnalysis" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Lap Analysis</TabsTrigger>
               <TabsTrigger value="signature" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Braking &amp; Traction</TabsTrigger>
               <TabsTrigger value="consistency" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Driving Consistency</TabsTrigger>
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
@@ -388,7 +387,7 @@ function DebriefPage() {
               </PaperPanel>
             </TabsContent>
 
-            <TabsContent value="lapDetail" className="mt-4">
+            <TabsContent value="lapAnalysis" className="mt-4 space-y-6">
               <PaperPanel eyebrow="Drill-down" title="Lap Detail">
                 <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-ink/10 pb-3">
                   <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -546,9 +545,7 @@ function DebriefPage() {
                   </div>
                 )}
               </PaperPanel>
-            </TabsContent>
 
-            <TabsContent value="lapCompare" className="mt-4">
               <PaperPanel eyebrow="Performance" title="Lap Comparison">
                 <LapComparisonPanel file={file} laps={laps} selectedLap={selectedLap} />
               </PaperPanel>
