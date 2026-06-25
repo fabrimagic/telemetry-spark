@@ -22,6 +22,7 @@ import { LapComparisonPanel } from "@/components/telemetry/LapComparisonPanel";
 import { BrakingSignaturePanel } from "@/components/telemetry/BrakingSignaturePanel";
 import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsistencyPanel";
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
+import { SuspensionPanel } from "@/components/telemetry/SuspensionPanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
@@ -361,6 +362,7 @@ function DebriefPage() {
               <TabsTrigger value="signature" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Braking &amp; Traction</TabsTrigger>
               <TabsTrigger value="consistency" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Driving Consistency</TabsTrigger>
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
+              <TabsTrigger value="suspension" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Suspension &amp; Platform</TabsTrigger>
             </TabsList>
 
             <TabsContent value="weather" className="mt-4">
@@ -581,6 +583,12 @@ function DebriefPage() {
             <TabsContent value="thermal" className="mt-4">
               <PaperPanel eyebrow="Setup" title="Thermal Balance">
                 <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="suspension" className="mt-4">
+              <PaperPanel eyebrow="Chassis" title="Suspension & Platform">
+                <SuspensionPanel file={file} laps={laps} />
               </PaperPanel>
             </TabsContent>
           </Tabs>
