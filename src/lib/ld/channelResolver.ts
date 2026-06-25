@@ -291,9 +291,37 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   "tyrePress.rr": TYRE_PRESS_CORNERS.rr,
 };
 
+/** All logical keys known to the resolver, in declaration order. Exposed for
+ *  diagnostic tooling (e.g. the Channel Mapping panel) that needs to iterate
+ *  the catalogue without reimplementing it. */
+export const ALL_LOGICAL_KEYS: LogicalKey[] =
+  Object.keys(CATALOG) as LogicalKey[];
+
+/** Human-readable view of the patterns associated with a logical key.
+ *  `=` denotes exact (normalised) match, `~` substring, `re:` a regex.
+ *  Read-only convenience for diagnostic UIs — does NOT drive matching. */
+export function describePatterns(key: LogicalKey): string[] {
+  const patterns = CATALOG[key];
+  if (!patterns) return [];
+  return patterns.map((p) => {
+    switch (p.kind) {
+      case "exact":    return `= ${p.value}`;
+      case "includes": return `~ ${p.value}`;
+      case "regex":    return `re: ${p.value.source}`;
+    }
+  });
+}
+
 function isUsable(c: Channel): boolean {
   return !c.empty && c.nSamples > 0;
 }
+
+/** Predicate variant of `isUsable` for external diagnostic tooling. Mirrors
+ *  exactly the filter applied by `resolveChannel`. */
+export function isChannelUsable(c: Channel): boolean {
+  return isUsable(c);
+}
+
 
 function matches(name: string, p: ChannelPattern): boolean {
   switch (p.kind) {

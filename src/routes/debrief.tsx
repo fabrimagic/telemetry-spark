@@ -24,6 +24,7 @@ import { DrivingConsistencyPanel } from "@/components/telemetry/DrivingConsisten
 import { ThermalBalancePanel } from "@/components/telemetry/ThermalBalancePanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
+import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
 
 import {
   Table,
@@ -650,6 +651,13 @@ function DebriefPage() {
             </PaperPanel>
           </div>
         )}
+
+        {/* ---------- Channel mapping (diagnostics, end of page) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Diagnostics" title="Channel Mapping">
+            <ChannelMappingPanel file={file} />
+          </PaperPanel>
+        </div>
       </div>
     </div>
   );
