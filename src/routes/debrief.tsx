@@ -27,6 +27,7 @@ import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
 import { GGDiagramPanel } from "@/components/telemetry/GGDiagramPanel";
+import { TractionSlipPanel } from "@/components/telemetry/TractionSlipPanel";
 
 
 import {
@@ -367,6 +368,7 @@ function DebriefPage() {
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
               <TabsTrigger value="suspension" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Suspension &amp; Platform</TabsTrigger>
               <TabsTrigger value="gg" className="rounded-none font-mono text-[10px] uppercase tracking-widest">G-G Diagram</TabsTrigger>
+              <TabsTrigger value="traction" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Traction Slip</TabsTrigger>
 
             </TabsList>
 
@@ -622,6 +624,12 @@ function DebriefPage() {
                   size={420}
                   subtitle="Aggregato stint · solo giri validi"
                 />
+              </PaperPanel>
+            </TabsContent>
+
+            <TabsContent value="traction" className="mt-4">
+              <PaperPanel eyebrow="Traction" title="Traction Slip">
+                <TractionSlipPanel file={file} laps={laps} />
               </PaperPanel>
             </TabsContent>
           </Tabs>
