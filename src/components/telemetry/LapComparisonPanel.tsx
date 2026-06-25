@@ -28,6 +28,7 @@ import {
   type ComparisonChannelKey,
   type LapComparisonResult,
 } from "@/lib/ld/lapComparison";
+import { deriveCornerThreshold } from "@/lib/ld/tractionSlip";
 import {
   Table,
   TableBody,
@@ -36,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 
 const COLOR_REF = "#facc15"; // bright amber-yellow, highly visible against dark theme
 const COLOR_SEL = "#1f4a8a"; // cool blue, distinct from race-red
@@ -359,10 +361,18 @@ export function LapComparisonPanel({
     [laps, selectedLap],
   );
 
-  const result = useMemo(
-    () => buildLapComparison(file, refLap, selLap),
-    [file, refLap, selLap],
+  // Same in-corner threshold as the aggregate Traction Slip panel — derived
+  // stint-wide over valid laps. Drives the slip overlay reliability flag.
+  const cornerIndicatorThreshold = useMemo(
+    () => deriveCornerThreshold(file, laps),
+    [file, laps],
   );
+
+  const result = useMemo(
+    () => buildLapComparison(file, refLap, selLap, { cornerIndicatorThreshold }),
+    [file, refLap, selLap, cornerIndicatorThreshold],
+  );
+
 
   if (selectedLap === "all") {
     return (
@@ -453,7 +463,26 @@ export function LapComparisonPanel({
           yDecimals={1}
         />
         <SuspensionOverlay result={result} />
+        <OverlayChart
+          result={result}
+          channel="slip"
+          unit="%"
+          title="Slip in trazione (calcolato) vs distanza (m)"
+          yDecimals={2}
+        />
       </div>
+
+      <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
+        Lo slip mostrato è <b>calcolato</b> dalle quattro velocità ruota
+        ((v<sub>post</sub> − v<sub>ant</sub>) / v<sub>ant</sub> · 100), non è
+        un canale grezzo né l'intervento del Traction Control (non loggato).
+        Sotto {Math.round(30)} km/h il valore è instabile e viene scartato. In
+        curva la differenza geometrica tra rotaie anteriore e posteriore
+        contamina il rapporto: i tratti in curva sono quindi <b>meno
+        affidabili</b> — soglia indicatore curva derivata dai dati
+        (|v<sub>FL</sub>−v<sub>FR</sub>|/v<sub>ant</sub> ≥ {cornerIndicatorThreshold.toFixed(3)}).
+      </p>
+
 
       <div>
         <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-race-red">

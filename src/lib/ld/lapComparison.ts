@@ -19,6 +19,8 @@
 import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
 import { resolveChannel, type LogicalKey } from "@/lib/ld/channelResolver";
+import { computeSlipOnGrid } from "@/lib/ld/slipFormula";
+
 
 /* ============================ Public types ============================ */
 
@@ -31,18 +33,29 @@ export type ComparisonChannelKey =
   | "suspTravelFL"
   | "suspTravelFR"
   | "suspTravelRL"
-  | "suspTravelRR";
+  | "suspTravelRR"
+  | "wheelSpeedFL"
+  | "wheelSpeedFR"
+  | "wheelSpeedRL"
+  | "wheelSpeedRR"
+  | "slip";
+
 
 export interface ResampledLap {
   /** Common uniform distance grid (m). */
   grid: Float32Array;
-  /** Per logical-channel resampled values aligned with `grid` (NaN where out of coverage). */
+  /** Per logical-channel resampled values aligned with `grid` (NaN where out of coverage).
+   *  `slip` is CALCULATED, not resolved from a physical channel. */
   series: Partial<Record<ComparisonChannelKey, Float32Array>>;
   /** Observed lap distance length (m) — last monotonic distance value. */
   lapLength: number;
   /** Coverage fraction over the reference lap length (1 = full). */
   coverage: number;
+  /** Per-grid-point flag (1=in corner, 0=straight) for the calculated slip.
+   *  Present only when wheel speeds are available and a threshold was passed. */
+  slipInCorner?: Uint8Array;
 }
+
 
 export interface BrakingZone {
   /** Progressive index, 1-based. */
@@ -113,6 +126,13 @@ const CHANNEL_KEYS: ComparisonChannelKey[] = [
   "suspTravelFR",
   "suspTravelRL",
   "suspTravelRR",
+  "wheelSpeedFL",
+  "wheelSpeedFR",
+  "wheelSpeedRL",
+  "wheelSpeedRR",
+  // "slip" is intentionally NOT in CHANNEL_KEYS: it is a CALCULATED series
+  // (not a physical channel), derived after resampling from the four wheel
+  // speeds via tractionSlip.computeSlipOnGrid — single source of truth.
 ];
 
 /** Map a ComparisonChannelKey to the resolver's LogicalKey.
@@ -123,9 +143,14 @@ function toLogicalKey(key: ComparisonChannelKey): LogicalKey {
     case "suspTravelFR": return "suspTravel.fr";
     case "suspTravelRL": return "suspTravel.rl";
     case "suspTravelRR": return "suspTravel.rr";
+    case "slip":
+      // Should never be requested via the resolver path. Return any logical
+      // key as a no-op; the slip series is computed, not resolved.
+      return "speed";
     default: return key as LogicalKey;
   }
 }
+
 
 /* ============================ Helpers ============================ */
 
@@ -245,6 +270,7 @@ function resampleLap(
   grid: Float32Array,
   lapCh: Channel,
   channels: Partial<Record<ComparisonChannelKey, Channel>>,
+  cornerIndicatorThreshold?: number,
 ): ResampledLap {
   const lapLength = estimateLapLength(lapCh, lap.tStart, lap.tEnd);
   const series: Partial<Record<ComparisonChannelKey, Float32Array>> = {};
@@ -254,10 +280,29 @@ function resampleLap(
     const { d, y } = buildDistanceSeries(ch, lapCh, lap.tStart, lap.tEnd);
     series[key] = interpolateToGrid(d, y, grid);
   }
+  // CALCULATED slip (not a physical channel): derived from the four resampled
+  // wheel speeds via the shared formula in slipFormula.ts. Reuses the exact
+  // same threshold (passed in from the stint-wide derivation) and the exact
+  // same V_MIN_KMH guard as the aggregate Traction Slip panel.
+  let slipInCorner: Uint8Array | undefined;
+  if (cornerIndicatorThreshold !== undefined) {
+    const slipRes = computeSlipOnGrid(
+      series.wheelSpeedFL,
+      series.wheelSpeedFR,
+      series.wheelSpeedRL,
+      series.wheelSpeedRR,
+      cornerIndicatorThreshold,
+    );
+    if (slipRes) {
+      series.slip = slipRes.slip;
+      slipInCorner = slipRes.inCorner;
+    }
+  }
   const gridLength = grid[grid.length - 1] || 0;
   const coverage = gridLength > 0 ? Math.min(1, lapLength / gridLength) : 0;
-  return { grid, series, lapLength, coverage };
+  return { grid, series, lapLength, coverage, slipInCorner };
 }
+
 
 /* ============================ Braking zones ============================ */
 
@@ -501,7 +546,9 @@ export function buildLapComparison(
   file: LdFile,
   refLap: LapRow | null,
   selLap: LapRow | null,
+  opts?: { cornerIndicatorThreshold?: number },
 ): LapComparisonResult {
+
   const channels: Partial<Record<ComparisonChannelKey, Channel>> = {};
   const availability: Partial<Record<ComparisonChannelKey, boolean>> = {};
   for (const key of CHANNEL_KEYS) {
@@ -562,8 +609,10 @@ export function buildLapComparison(
   const step = refLength / (GRID_POINTS - 1);
   for (let i = 0; i < GRID_POINTS; i++) grid[i] = i * step;
 
-  const reference = resampleLap(file, refLap, grid, lapCh, channels);
-  const selected = resampleLap(file, selLap, grid, lapCh, channels);
+  const cornerThr = opts?.cornerIndicatorThreshold;
+  const reference = resampleLap(file, refLap, grid, lapCh, channels, cornerThr);
+  const selected = resampleLap(file, selLap, grid, lapCh, channels, cornerThr);
+
 
   const partial = selected.coverage < PARTIAL_COVERAGE_THRESHOLD;
 
