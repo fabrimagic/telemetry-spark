@@ -585,6 +585,12 @@ function DebriefPage() {
                 <ThermalBalancePanel file={file} laps={laps} toolsetMeta={toolsetMeta} />
               </PaperPanel>
             </TabsContent>
+
+            <TabsContent value="suspension" className="mt-4">
+              <PaperPanel eyebrow="Chassis" title="Suspension & Platform">
+                <SuspensionPanel file={file} laps={laps} />
+              </PaperPanel>
+            </TabsContent>
           </Tabs>
         </div>
 
