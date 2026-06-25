@@ -544,6 +544,8 @@ export function LapComparisonPanel({
           title="Slip in trazione (calcolato) vs distanza (m)"
           yDecimals={2}
         />
+        <TyreTempOverlay result={result} />
+
       </div>
 
       <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
