@@ -11,16 +11,29 @@
 // "this physical channel matches this logical key" — and never infers
 // semantics on its own. No verdicts, no inferences.
 //
+// Toolset enrichment: when the caller passes the toolset display metadata
+// and channel descriptions (already produced by the toolset parser), we
+// match by normalised name (same logic as `findAlarmRange`) and surface
+// the declared quantity, user-facing unit, physical range and description.
+// Metadata is shown only when it exists for that exact channel — no
+// inferences for channels without metadata.
+//
 // Parsers are not touched.
 
 import {
   ALL_LOGICAL_KEYS,
   describePatterns,
   isChannelUsable,
+  normName,
   resolveChannel,
   type LogicalKey,
 } from "@/lib/ld/channelResolver";
 import type { Channel, ChannelCategory, LdFile } from "@/lib/ld/types";
+import type {
+  ToolsetChannelEntry,
+  ToolsetDisplayMeta,
+} from "@/lib/toolset/types";
+
 
 export interface ResolvedLogicalEntry {
   key: LogicalKey;
