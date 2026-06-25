@@ -137,19 +137,145 @@ function statsOf(values: number[], threshold: number): TractionSlipStats {
   };
 }
 
+/* ============================ Reusable pure API ============================ */
+
+/** One calculated slip sample, with the in-corner flag for that instant.
+ *  `slip` is CALCULATED from the four wheel speeds (rear/front − 1), in %. */
+export interface SlipSample {
+  /** Absolute time (s) in the file's clock. */
+  t: number;
+  /** Calculated slip percentage. */
+  slip: number;
+  /** True when the instantaneous |vFL−vFR|/vFront exceeds the derived
+   *  in-corner threshold and the sample is therefore LESS reliable. */
+  inCorner: boolean;
+}
+
+/** Resolve the four wheel-speed channels via the logical resolver. Returns
+ *  null if fewer than 2 fronts + 2 rears are available. */
+export function resolveWheelSpeedChannels(
+  file: LdFile,
+): { vFL: Channel; vFR: Channel; vRL: Channel; vRR: Channel; freq: number } | null {
+  const vFL = resolveChannel(file.channels, "wheelSpeedFL");
+  const vFR = resolveChannel(file.channels, "wheelSpeedFR");
+  const vRL = resolveChannel(file.channels, "wheelSpeedRL");
+  const vRR = resolveChannel(file.channels, "wheelSpeedRR");
+  if (!vFL || !vFR || !vRL || !vRR) return null;
+  const freq = Math.min(vFL.freq, vFR.freq, vRL.freq, vRR.freq);
+  if (!(freq > 0)) return null;
+  return { vFL, vFR, vRL, vRR, freq };
+}
+
+/** Derive the data-driven in-corner threshold (75th percentile of
+ *  |vFL−vFR|/vFront) over the supplied laps. Returns a small positive
+ *  fallback if no valid samples are found. Same formula as the aggregate
+ *  panel — single source of truth. */
+export function deriveCornerThreshold(
+  file: LdFile,
+  laps: LapRow[],
+): number {
+  const wheels = resolveWheelSpeedChannels(file);
+  if (!wheels) return 0.02;
+  const { vFL, vFR, freq } = wheels;
+  const validLaps = laps.filter((l) => l.isValidLap);
+  if (validLaps.length === 0) return 0.02;
+  const cornerIndicators: number[] = [];
+  for (const lap of validLaps) {
+    const iStart = Math.max(0, Math.floor(lap.tStart * freq));
+    const iEnd = Math.floor(lap.tEnd * freq);
+    for (let i = iStart; i < iEnd; i++) {
+      const t = i / freq;
+      const a = sampleAt(vFL, t);
+      const b = sampleAt(vFR, t);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      const vFront = (a + b) / 2;
+      if (vFront < V_MIN_KMH) continue;
+      cornerIndicators.push(Math.abs(a - b) / vFront);
+    }
+  }
+  if (cornerIndicators.length === 0) return 0.02;
+  cornerIndicators.sort((x, y) => x - y);
+  const raw = percentile(cornerIndicators, 75);
+  return Number.isFinite(raw) && raw > 0 ? raw : 0.02;
+}
+
+/** Pure per-lap slip series. Same formula and thresholds (V_MIN_KMH, corner
+ *  indicator) used by `buildTractionSlip`. Returns null if wheel speeds are
+ *  not all resolvable (degrado neutro). Samples where vFront < V_MIN_KMH are
+ *  omitted: slip is numerically unstable below that speed. */
+export function computeSlipSamples(
+  file: LdFile,
+  lap: LapRow,
+  cornerIndicatorThreshold: number,
+): SlipSample[] | null {
+  const wheels = resolveWheelSpeedChannels(file);
+  if (!wheels) return null;
+  const { vFL, vFR, vRL, vRR, freq } = wheels;
+  const iStart = Math.max(0, Math.floor(lap.tStart * freq));
+  const iEnd = Math.floor(lap.tEnd * freq);
+  const out: SlipSample[] = [];
+  for (let i = iStart; i < iEnd; i++) {
+    const t = i / freq;
+    const a = sampleAt(vFL, t);
+    const b = sampleAt(vFR, t);
+    const r1 = sampleAt(vRL, t);
+    const r2 = sampleAt(vRR, t);
+    if (
+      !Number.isFinite(a) || !Number.isFinite(b) ||
+      !Number.isFinite(r1) || !Number.isFinite(r2)
+    ) continue;
+    const vFront = (a + b) / 2;
+    if (vFront < V_MIN_KMH) continue;
+    const vRear = (r1 + r2) / 2;
+    const slip = ((vRear - vFront) / vFront) * 100;
+    if (!Number.isFinite(slip)) continue;
+    const cornerInd = Math.abs(a - b) / vFront;
+    out.push({ t, slip, inCorner: cornerInd >= cornerIndicatorThreshold });
+  }
+  return out;
+}
+
+/** Compute slip from already-resampled wheel-speed arrays on a common grid.
+ *  Same formula and thresholds as the time-domain path. Where any input is
+ *  NaN or vFront < V_MIN_KMH the output sample is NaN. The inCorner mask is
+ *  derived per-sample with the SAME corner indicator. */
+export function computeSlipOnGrid(
+  vFL: Float32Array | undefined,
+  vFR: Float32Array | undefined,
+  vRL: Float32Array | undefined,
+  vRR: Float32Array | undefined,
+  cornerIndicatorThreshold: number,
+): { slip: Float32Array; inCorner: Uint8Array } | null {
+  if (!vFL || !vFR || !vRL || !vRR) return null;
+  const n = vFL.length;
+  if (vFR.length !== n || vRL.length !== n || vRR.length !== n) return null;
+  const slip = new Float32Array(n);
+  const inCorner = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = vFL[i], b = vFR[i], r1 = vRL[i], r2 = vRR[i];
+    if (
+      !Number.isFinite(a) || !Number.isFinite(b) ||
+      !Number.isFinite(r1) || !Number.isFinite(r2)
+    ) { slip[i] = NaN; inCorner[i] = 0; continue; }
+    const vFront = (a + b) / 2;
+    if (vFront < V_MIN_KMH) { slip[i] = NaN; inCorner[i] = 0; continue; }
+    const vRear = (r1 + r2) / 2;
+    slip[i] = ((vRear - vFront) / vFront) * 100;
+    inCorner[i] = Math.abs(a - b) / vFront >= cornerIndicatorThreshold ? 1 : 0;
+  }
+  return { slip, inCorner };
+}
+
 /* ============================ Main builder ============================ */
 
 export function buildTractionSlip(
   file: LdFile,
   laps: LapRow[],
 ): TractionSlipResult {
-  const vFL = resolveChannel(file.channels, "wheelSpeedFL");
-  const vFR = resolveChannel(file.channels, "wheelSpeedFR");
-  const vRL = resolveChannel(file.channels, "wheelSpeedRL");
-  const vRR = resolveChannel(file.channels, "wheelSpeedRR");
+  const wheels = resolveWheelSpeedChannels(file);
   const lapCh = resolveChannel(file.channels, "lapDistance");
 
-  if (!vFL || !vFR || !vRL || !vRR) {
+  if (!wheels) {
     return {
       available: false,
       reason: "missing-wheels",
@@ -167,24 +293,7 @@ export function buildTractionSlip(
     };
   }
 
-  // Common sampling frequency = min of the four (typically all 100 Hz).
-  const freq = Math.min(vFL.freq, vFR.freq, vRL.freq, vRR.freq);
-  if (!(freq > 0)) {
-    return {
-      available: false,
-      reason: "no-samples",
-      message: "Frequenza dei canali velocità ruota non valida.",
-      thresholds: {
-        vMinKmh: V_MIN_KMH,
-        slipSignificantPct: SLIP_SIGNIFICANT_PCT,
-        cornerIndicatorThreshold: 0,
-      },
-      perLap: [],
-      stint: { overall: EMPTY_STATS, straight: EMPTY_STATS, corner: EMPTY_STATS },
-      hasZones: false,
-      lapsAnalysed: 0,
-    };
-  }
+  const { vFL, vFR, vRL, vRR, freq } = wheels;
 
   const validLaps = laps.filter((l) => l.isValidLap);
   if (validLaps.length === 0) {
@@ -204,27 +313,9 @@ export function buildTractionSlip(
     };
   }
 
-  // First pass: collect corner indicators to derive the in-corner threshold.
-  const cornerIndicators: number[] = [];
-  for (const lap of validLaps) {
-    const iStart = Math.max(0, Math.floor(lap.tStart * freq));
-    const iEnd = Math.floor(lap.tEnd * freq);
-    for (let i = iStart; i < iEnd; i++) {
-      const t = i / freq;
-      const a = sampleAt(vFL, t);
-      const b = sampleAt(vFR, t);
-      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-      const vFront = (a + b) / 2;
-      if (vFront < V_MIN_KMH) continue;
-      cornerIndicators.push(Math.abs(a - b) / vFront);
-    }
-  }
-  const cornerSorted = [...cornerIndicators].sort((x, y) => x - y);
-  const cornerThresholdRaw = percentile(cornerSorted, 75);
-  const cornerIndicatorThreshold =
-    Number.isFinite(cornerThresholdRaw) && cornerThresholdRaw > 0
-      ? cornerThresholdRaw
-      : 0.02;
+  // Single source of truth for the in-corner threshold.
+  const cornerIndicatorThreshold = deriveCornerThreshold(file, validLaps);
+
 
   // Second pass: per-lap slip stats, partitioned by corner indicator.
   const allSlip: number[] = [];
