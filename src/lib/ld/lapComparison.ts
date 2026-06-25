@@ -27,7 +27,11 @@ export type ComparisonChannelKey =
   | "throttle"
   | "brakePressFront"
   | "brakePressRear"
-  | "steeringAngle";
+  | "steeringAngle"
+  | "suspTravelFL"
+  | "suspTravelFR"
+  | "suspTravelRL"
+  | "suspTravelRR";
 
 export interface ResampledLap {
   /** Common uniform distance grid (m). */
@@ -105,7 +109,23 @@ const CHANNEL_KEYS: ComparisonChannelKey[] = [
   "brakePressFront",
   "brakePressRear",
   "steeringAngle",
+  "suspTravelFL",
+  "suspTravelFR",
+  "suspTravelRL",
+  "suspTravelRR",
 ];
+
+/** Map a ComparisonChannelKey to the resolver's LogicalKey.
+ *  Most keys share the same identifier; suspension travel uses a dotted form. */
+function toLogicalKey(key: ComparisonChannelKey): LogicalKey {
+  switch (key) {
+    case "suspTravelFL": return "suspTravel.fl";
+    case "suspTravelFR": return "suspTravel.fr";
+    case "suspTravelRL": return "suspTravel.rl";
+    case "suspTravelRR": return "suspTravel.rr";
+    default: return key as LogicalKey;
+  }
+}
 
 /* ============================ Helpers ============================ */
 
@@ -485,7 +505,7 @@ export function buildLapComparison(
   const channels: Partial<Record<ComparisonChannelKey, Channel>> = {};
   const availability: Partial<Record<ComparisonChannelKey, boolean>> = {};
   for (const key of CHANNEL_KEYS) {
-    const ch = resolveChannel(file.channels, key as LogicalKey);
+    const ch = resolveChannel(file.channels, toLogicalKey(key));
     if (ch) {
       channels[key] = ch;
       availability[key] = true;
@@ -640,7 +660,7 @@ export function resolveComparisonChannels(
 ): Partial<Record<ComparisonChannelKey, Channel>> {
   const out: Partial<Record<ComparisonChannelKey, Channel>> = {};
   for (const key of CHANNEL_KEYS) {
-    const ch = resolveChannel(file.channels, key as LogicalKey);
+    const ch = resolveChannel(file.channels, toLogicalKey(key));
     if (ch) out[key] = ch;
   }
   return out;

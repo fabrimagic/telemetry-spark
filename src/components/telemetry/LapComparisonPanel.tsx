@@ -8,7 +8,7 @@
 //  - When a channel is missing, the relative trace / metric is omitted
 //    with a neutral placeholder; no fake zeros, no invented thresholds.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -180,6 +180,164 @@ function OverlayChart({ result, channel, unit, title, yDecimals = 1 }: OverlayCh
   );
 }
 
+/* Suspension travel overlay — selectable wheel (FL/FR/RL/RR) so we only ever
+ * show 2 lines (riferimento vs selezionato) instead of 8 overlapping traces. */
+const SUSP_WHEELS: { key: ComparisonChannelKey; label: string }[] = [
+  { key: "suspTravelFL", label: "FL" },
+  { key: "suspTravelFR", label: "FR" },
+  { key: "suspTravelRL", label: "RL" },
+  { key: "suspTravelRR", label: "RR" },
+];
+
+function SuspensionOverlay({ result }: { result: LapComparisonResult }) {
+  const available = SUSP_WHEELS.filter((w) => result.availability[w.key]);
+  const [wheel, setWheel] = useState<ComparisonChannelKey | null>(
+    available[0]?.key ?? null,
+  );
+  if (available.length === 0) {
+    return (
+      <div>
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Corsa sospensione vs distanza (m)
+        </div>
+        <Notice>Canali corse sospensione non disponibili.</Notice>
+      </div>
+    );
+  }
+  const active = wheel && available.some((w) => w.key === wheel) ? wheel : available[0].key;
+  const activeLabel = SUSP_WHEELS.find((w) => w.key === active)?.label ?? "";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Corsa sospensione · {activeLabel} vs distanza (m)
+        </span>
+        <div className="flex gap-1">
+          {SUSP_WHEELS.map((w) => {
+            const enabled = available.some((a) => a.key === w.key);
+            const isActive = active === w.key;
+            return (
+              <button
+                key={w.key}
+                type="button"
+                disabled={!enabled}
+                onClick={() => setWheel(w.key)}
+                className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest transition-colors ${
+                  isActive
+                    ? "border-ink bg-ink text-background"
+                    : enabled
+                      ? "border-ink/30 text-foreground hover:border-ink/60"
+                      : "border-ink/10 text-muted-foreground/40 cursor-not-allowed"
+                }`}
+              >
+                {w.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <OverlayChartBody
+        result={result}
+        channel={active}
+        unit="mm"
+        yDecimals={1}
+      />
+    </div>
+  );
+}
+
+function OverlayChartBody({
+  result,
+  channel,
+  unit,
+  yDecimals,
+}: {
+  result: LapComparisonResult;
+  channel: ComparisonChannelKey;
+  unit: string;
+  yDecimals: number;
+}) {
+  const data = useMemo(() => buildOverlay(result, channel, 700), [result, channel]);
+  const zones = result.zones ?? [];
+  const hasAny = data.some((p) => p.ref !== undefined || p.sel !== undefined);
+  if (!hasAny) return <Notice>Canale non disponibile.</Notice>;
+  return (
+    <div className="h-[200px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 6, right: 14, bottom: 4, left: 0 }}>
+          <CartesianGrid strokeDasharray="2 3" stroke="hsl(var(--ink) / 0.15)" />
+          <XAxis
+            dataKey="x"
+            type="number"
+            domain={["dataMin", "dataMax"]}
+            tickFormatter={(v: number) => `${Math.round(v)}`}
+            stroke="hsl(var(--ink))"
+            tick={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10 }}
+          />
+          <YAxis
+            stroke="hsl(var(--ink))"
+            tick={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10 }}
+            width={42}
+            tickFormatter={(v: number) => v.toFixed(yDecimals)}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "hsl(var(--card))",
+              border: "1px solid hsl(var(--ink) / 0.4)",
+              borderRadius: 0,
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 11,
+            }}
+            labelFormatter={(v: number) => `d = ${Math.round(v)} m`}
+            formatter={(value: number, name: string) => [
+              `${value.toFixed(yDecimals)} ${unit}`,
+              name,
+            ]}
+          />
+          <Legend
+            wrapperStyle={{
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+            }}
+          />
+          {zones.map((z) => (
+            <ReferenceArea
+              key={z.index}
+              x1={z.startDist}
+              x2={z.endDist}
+              fill={COLOR_ZONE}
+              stroke="none"
+              ifOverflow="hidden"
+            />
+          ))}
+          <Line
+            type="monotone"
+            dataKey="ref"
+            name="Riferimento"
+            stroke={COLOR_REF}
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="sel"
+            name="Selezionato"
+            stroke={COLOR_SEL}
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function LapComparisonPanel({
   file,
   laps,
@@ -294,6 +452,7 @@ export function LapComparisonPanel({
           title="Angolo di sterzo vs distanza (m)"
           yDecimals={1}
         />
+        <SuspensionOverlay result={result} />
       </div>
 
       <div>

@@ -38,6 +38,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -1102,6 +1103,147 @@ function LapChannelTraces({
           </div>
         );
       })}
+      <SuspensionTravelTrace
+        file={file}
+        lapCh={lapCh}
+        lap={lap}
+        xMax={xMax}
+        cursorDist={cursorDist}
+        onCursorDistChange={onCursorDistChange}
+      />
+    </div>
+  );
+}
+
+/* Suspension travel — 4 wheels overlaid on a single chart vs Lap Distance.
+ * Convention dichiarata in legenda: FL=red, FR=orange (anteriori, tinte calde);
+ * RL=teal, RR=blue (posteriori, tinte fredde). Ruote assenti vengono omesse;
+ * se nessuna è disponibile il blocco non è renderizzato. */
+const SUSP_TRACE_WHEELS: { logical: LogicalKey; label: string; color: string }[] = [
+  { logical: "suspTravel.fl", label: "FL", color: "#d40000" },
+  { logical: "suspTravel.fr", label: "FR", color: "#e08a00" },
+  { logical: "suspTravel.rl", label: "RL", color: "#0f8a8a" },
+  { logical: "suspTravel.rr", label: "RR", color: "#1f4a8a" },
+];
+
+function SuspensionTravelTrace({
+  file,
+  lapCh,
+  lap,
+  xMax,
+  cursorDist,
+  onCursorDistChange,
+}: {
+  file: LdFile;
+  lapCh: Channel;
+  lap: LapRow;
+  xMax: number;
+  cursorDist: number | null;
+  onCursorDistChange?: (d: number | null) => void;
+}) {
+  const wheels = SUSP_TRACE_WHEELS
+    .map((w) => {
+      const ch = findChannel(file, w.logical);
+      if (!ch) return null;
+      const raw = buildLapSeries(ch, lapCh, lap.tStart, lap.tEnd);
+      if (raw.length === 0) return null;
+      return { ...w, data: decimateSeries(raw, 700) };
+    })
+    .filter((x): x is { logical: LogicalKey; label: string; color: string; data: { x: number; y: number }[] } => x !== null);
+
+  if (wheels.length === 0) return null;
+
+  // Merge into a single dataset keyed by x; each wheel gets its own y-field.
+  type Row = Record<string, number>;
+  const map = new Map<number, Row>();
+  for (const w of wheels) {
+    for (const p of w.data) {
+      const row = map.get(p.x) ?? ({ x: p.x } as Row);
+      row[w.label] = p.y;
+      map.set(p.x, row);
+    }
+  }
+  const merged: Row[] = Array.from(map.values()).sort((a, b) => a.x - b.x);
+
+  return (
+    <div className="border border-ink/20 bg-card/40 p-2">
+      <div className="mb-1 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-widest">
+        <span className="text-foreground">Suspension Travel · FL/FR/RL/RR</span>
+        <span className="text-muted-foreground">mm</span>
+      </div>
+      <div className="h-40 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={merged}
+            margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+            onMouseMove={(s: { activeLabel?: number | string }) => {
+              if (!onCursorDistChange) return;
+              const v = s?.activeLabel;
+              const n = typeof v === "number" ? v : v !== undefined ? Number(v) : NaN;
+              if (Number.isFinite(n)) onCursorDistChange(n);
+            }}
+            onMouseLeave={() => onCursorDistChange?.(null)}
+          >
+            <CartesianGrid stroke="hsl(var(--ink) / 0.1)" strokeDasharray="2 2" />
+            <XAxis
+              type="number"
+              dataKey="x"
+              domain={[0, Math.ceil(xMax)]}
+              tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              stroke="hsl(var(--ink) / 0.3)"
+            />
+            <YAxis
+              tick={{ fontFamily: "ui-monospace, monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              stroke="hsl(var(--ink) / 0.3)"
+              width={42}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--ink) / 0.3)",
+                borderRadius: 0,
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 11,
+              }}
+              labelFormatter={(v: number) => `d ${v.toFixed(0)} m`}
+              formatter={(v: number, name: string) => [
+                Number.isFinite(v) ? `${v.toFixed(1)} mm` : "—",
+                name,
+              ]}
+            />
+            <Legend
+              wrapperStyle={{
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+              }}
+            />
+            {cursorDist !== null && Number.isFinite(cursorDist) && (
+              <ReferenceLine
+                x={cursorDist}
+                stroke="hsl(var(--race-red))"
+                strokeOpacity={0.6}
+                strokeDasharray="2 2"
+                ifOverflow="hidden"
+              />
+            )}
+            {wheels.map((w) => (
+              <Line
+                key={w.label}
+                type="monotone"
+                dataKey={w.label}
+                name={w.label}
+                stroke={w.color}
+                strokeWidth={1.4}
+                dot={false}
+                isAnimationActive={false}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
