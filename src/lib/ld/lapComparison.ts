@@ -609,8 +609,10 @@ export function buildLapComparison(
   const step = refLength / (GRID_POINTS - 1);
   for (let i = 0; i < GRID_POINTS; i++) grid[i] = i * step;
 
-  const reference = resampleLap(file, refLap, grid, lapCh, channels);
-  const selected = resampleLap(file, selLap, grid, lapCh, channels);
+  const cornerThr = opts?.cornerIndicatorThreshold;
+  const reference = resampleLap(file, refLap, grid, lapCh, channels, cornerThr);
+  const selected = resampleLap(file, selLap, grid, lapCh, channels, cornerThr);
+
 
   const partial = selected.coverage < PARTIAL_COVERAGE_THRESHOLD;
 
