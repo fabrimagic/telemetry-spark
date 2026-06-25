@@ -999,16 +999,20 @@ const TRACE_SPECS: TraceSpec[] = [
 function LapChannelTraces({
   file,
   lap,
+  laps,
   refLap,
   cursorDist = null,
   onCursorDistChange,
 }: {
   file: LdFile;
   lap: LapRow;
+  laps: LapRow[];
   refLap: LapRow | null;
   cursorDist?: number | null;
   onCursorDistChange?: (d: number | null) => void;
 }) {
+
+
 
   const lapCh = findChannel(file, "lapDistance");
   if (!lapCh) {
