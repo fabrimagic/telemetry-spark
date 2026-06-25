@@ -147,6 +147,8 @@ function DebriefPage() {
   const { files, toolsets } = useLdLoaderContext();
   const file = files[0];
   const toolsetMeta = toolsets[0]?.displayMeta;
+  const toolsetChannels = toolsets[0]?.channels;
+
 
   const analysis = useMemo(
     () => (file ? buildStintAnalysis(file, toolsetMeta || []) : null),
