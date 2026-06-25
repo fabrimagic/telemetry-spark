@@ -44,6 +44,13 @@ export type LogicalKey =
   | "steeringAngle"
   | "brakePressFront"
   | "brakePressRear"
+  // IMU / chassis accelerations (G). Sign convention verified on the project
+  // reference files: accLong < 0 = braking, > 0 = acceleration (asymmetric,
+  // braking peaks larger in magnitude); accLat symmetric. NEVER use the
+  // vertical axis (acc z) for the G-G diagram.
+  | "accLong"
+  | "accLat"
+
   // ABS / lap
   | "absActive"
   | "lapDistance"
