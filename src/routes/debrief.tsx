@@ -521,18 +521,20 @@ function DebriefPage() {
                             <ul className="space-y-1 font-mono text-xs">
                               {lapChanges.map((c) => {
                                 const active = setupMark?.label === c.channelLabel;
+                                const isTc = isTcChange(c);
                                 return (
                                   <li key={c.id}>
                                     <button
                                       type="button"
                                       onClick={() => focusSetupChange(c)}
-                                      className={`flex w-full flex-wrap gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
+                                      className={`flex w-full flex-wrap items-center gap-x-3 border border-transparent px-2 py-1 text-left hover:border-ink/30 hover:bg-muted/40 ${active ? "border-race-red bg-race-red/5 text-race-red" : ""}`}
                                       title="Localizza sulla mappa"
                                     >
                                       <span className="text-muted-foreground">{fmtTime(c.tSec - selected.tStart)}</span>
+                                      <SetupChannelBadge change={c} />
                                       <span className="font-bold">{c.channelLabel}</span>
-                                      <span>{fmt(c.prev, 2)} → {fmt(c.next, 2)}</span>
-                                      <span className="ml-auto text-[10px] uppercase tracking-widest opacity-60">◆ map</span>
+                                      <span>{formatSetupTransition(c)}</span>
+                                      <span className={`ml-auto text-[10px] uppercase tracking-widest opacity-60`}>{isTc ? "◆ tc" : "◆ map"}</span>
                                     </button>
                                   </li>
                                 );
@@ -596,10 +598,21 @@ function DebriefPage() {
           </div>
         )}
 
-        {/* ---------- Full setup-change timeline ---------- */}
+        {/* ---------- Full setup-change timeline ----------
+            Mostra la CONFIGURAZIONE scelta dal pilota (brake bias, engine map,
+            selettori TC lat/lon e modalità wet), NON gli interventi del TC:
+            il canale di intervento non è loggato in questi file e lo slip
+            ruota disponibile non è rappresentativo. */}
         {(has.brkbias || has.mappos || has.tc) && (
           <div className={`col-span-12 min-w-0 ${has.abs && has.lapDistance && selected === null ? "xl:col-span-6" : ""}`}>
             <PaperPanel eyebrow="Stint" title="Setup Change Timeline">
+              <p className="mb-3 font-mono text-[11px] leading-snug text-muted-foreground">
+                Configurazione del setup scelta dal pilota durante lo stint
+                (brake bias, engine map, selettori TC laterale/longitudinale e
+                modalità wet). Non sono interventi del controllo di trazione:
+                il flag d'intervento non è loggato e lo slip ruota non è
+                rappresentativo.
+              </p>
               {setupChanges.length === 0 ? (
                 <p className="font-mono text-xs text-muted-foreground">
                   Nessun cambio assetto rilevato nello stint.
@@ -610,9 +623,9 @@ function DebriefPage() {
                     <TableRow className="border-b border-ink/30">
                       <TH>Lap</TH>
                       <TH>t</TH>
+                      <TH>Group</TH>
                       <TH>Channel</TH>
-                      <TH align="right">Prev</TH>
-                      <TH align="right">New</TH>
+                      <TH>Change</TH>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -625,9 +638,9 @@ function DebriefPage() {
                       >
                         <TableCell className="font-mono text-xs tabular-nums">L{c.lap}</TableCell>
                         <TableCell className="font-mono text-xs tabular-nums">{fmtTime(c.tSec)}</TableCell>
+                        <TableCell><SetupChannelBadge change={c} /></TableCell>
                         <TableCell className="font-mono text-xs">{c.channelLabel}</TableCell>
-                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.prev, 2)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs tabular-nums">{fmt(c.next, 2)}</TableCell>
+                        <TableCell className="font-mono text-xs">{formatSetupTransition(c)}</TableCell>
                       </TableRow>
                     ))}
 
