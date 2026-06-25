@@ -38,6 +38,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
