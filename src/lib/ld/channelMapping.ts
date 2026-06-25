@@ -36,12 +36,40 @@ export interface UnresolvedLogicalEntry {
   patterns: string[];
 }
 
+/**
+ * Classification of an unmapped physical channel based on cached parser stats
+ * (min/max/avg/nSamples/empty). No heavy recomputation, no invented thresholds.
+ *
+ * - "data":     min != max with finite values → real signal, candidate for a
+ *               new alias in the resolver.
+ * - "constant": has samples but min == max (within FLAT_TOL) or any of
+ *               min/max/avg is NaN → flat / stuck / sentinel; mapping it
+ *               would not add usable signal.
+ * - "empty":    no samples at all (empty===true or nSamples===0). Normally
+ *               filtered out upstream by `isChannelUsable`, kept here for
+ *               completeness if a caller passes raw channels.
+ *
+ * Limit (declared): we cannot detect "populated but mostly null" (e.g. slip
+ * channels that are 0 for 99.7% of samples) from min/max alone, because a
+ * single non-zero sample would still make min != max. Detecting that would
+ * require an O(n) pass that is not currently cached on Channel, so it is
+ * intentionally out of scope here.
+ */
+export type UnmappedStatus = "data" | "constant" | "empty";
+
+/** Tolerance for declaring min == max (covers float-quantisation noise only). */
+const FLAT_TOL = 1e-9;
+
 export interface UnmappedChannelEntry {
   name: string;
   freq: number;
   unit: string;
   nSamples: number;
   category: ChannelCategory;
+  status: UnmappedStatus;
+  min: number;
+  max: number;
+  avg: number;
 }
 
 export interface ChannelMappingReport {
@@ -54,8 +82,21 @@ export interface ChannelMappingReport {
     usableChannels: number;
     mappedChannels: number;
     unmappedChannels: number;
+    unmappedWithData: number;
+    unmappedConstant: number;
+    unmappedEmpty: number;
   };
 }
+
+function classifyUnmapped(c: Channel): UnmappedStatus {
+  if (c.empty || c.nSamples === 0) return "empty";
+  if (!Number.isFinite(c.min) || !Number.isFinite(c.max) || !Number.isFinite(c.avg)) {
+    return "constant";
+  }
+  if (Math.abs(c.max - c.min) < FLAT_TOL) return "constant";
+  return "data";
+}
+
 
 export function buildChannelMapping(file: LdFile): ChannelMappingReport {
   const channels = file.channels;
