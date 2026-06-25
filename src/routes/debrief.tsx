@@ -651,6 +651,13 @@ function DebriefPage() {
             </PaperPanel>
           </div>
         )}
+
+        {/* ---------- Channel mapping (diagnostics, end of page) ---------- */}
+        <div className="col-span-12 min-w-0">
+          <PaperPanel eyebrow="Diagnostics" title="Channel Mapping">
+            <ChannelMappingPanel file={file} />
+          </PaperPanel>
+        </div>
       </div>
     </div>
   );
