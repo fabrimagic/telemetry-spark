@@ -11,16 +11,29 @@
 // "this physical channel matches this logical key" — and never infers
 // semantics on its own. No verdicts, no inferences.
 //
+// Toolset enrichment: when the caller passes the toolset display metadata
+// and channel descriptions (already produced by the toolset parser), we
+// match by normalised name (same logic as `findAlarmRange`) and surface
+// the declared quantity, user-facing unit, physical range and description.
+// Metadata is shown only when it exists for that exact channel — no
+// inferences for channels without metadata.
+//
 // Parsers are not touched.
 
 import {
   ALL_LOGICAL_KEYS,
   describePatterns,
   isChannelUsable,
+  normName,
   resolveChannel,
   type LogicalKey,
 } from "@/lib/ld/channelResolver";
 import type { Channel, ChannelCategory, LdFile } from "@/lib/ld/types";
+import type {
+  ToolsetChannelEntry,
+  ToolsetDisplayMeta,
+} from "@/lib/toolset/types";
+
 
 export interface ResolvedLogicalEntry {
   key: LogicalKey;
@@ -70,6 +83,18 @@ export interface UnmappedChannelEntry {
   min: number;
   max: number;
   avg: number;
+  /** Toolset-declared quantity kind (e.g. "Pressure", "Temperature"). */
+  toolsetQuantity?: string;
+  /** Toolset-declared user-facing unit (preferred when .ld unit is empty). */
+  toolsetUnit?: string;
+  /** Toolset-declared physical minimum (only when range is significant). */
+  toolsetMin?: number;
+  /** Toolset-declared physical maximum (only when range is significant). */
+  toolsetMax?: number;
+  /** Human description from the toolset channel catalogue. */
+  toolsetDescription?: string;
+  /** True when ANY toolset metadata is present for this channel. */
+  hasToolsetMeta: boolean;
 }
 
 export interface ChannelMappingReport {
@@ -85,6 +110,9 @@ export interface ChannelMappingReport {
     unmappedWithData: number;
     unmappedConstant: number;
     unmappedEmpty: number;
+    /** Among "data" unmapped channels: how many carry toolset metadata. */
+    unmappedWithDataDecipherable: number;
+    unmappedWithDataOpaque: number;
   };
 }
 
@@ -97,9 +125,43 @@ function classifyUnmapped(c: Channel): UnmappedStatus {
   return "data";
 }
 
+export interface ChannelMappingOptions {
+  toolsetMeta?: ToolsetDisplayMeta[];
+  toolsetChannels?: ToolsetChannelEntry[];
+}
 
-export function buildChannelMapping(file: LdFile): ChannelMappingReport {
+function buildMetaIndex(
+  toolsetMeta: ToolsetDisplayMeta[] | undefined,
+): Map<string, ToolsetDisplayMeta> {
+  const idx = new Map<string, ToolsetDisplayMeta>();
+  if (!toolsetMeta) return idx;
+  for (const m of toolsetMeta) idx.set(normName(m.sourceName), m);
+  return idx;
+}
+
+function buildDescriptionIndex(
+  toolsetChannels: ToolsetChannelEntry[] | undefined,
+): Map<string, string> {
+  const idx = new Map<string, string>();
+  if (!toolsetChannels) return idx;
+  for (const c of toolsetChannels) {
+    if (c.description && c.description.trim().length > 0) {
+      idx.set(normName(c.name), c.description.trim());
+    }
+  }
+  return idx;
+}
+
+
+
+
+export function buildChannelMapping(
+  file: LdFile,
+  options: ChannelMappingOptions = {},
+): ChannelMappingReport {
   const channels = file.channels;
+  const metaIdx = buildMetaIndex(options.toolsetMeta);
+  const descIdx = buildDescriptionIndex(options.toolsetChannels);
 
   const resolved: ResolvedLogicalEntry[] = [];
   const unresolved: UnresolvedLogicalEntry[] = [];
@@ -127,36 +189,59 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
   // is still used for the "usable" total.
   const usable: Channel[] = channels.filter(isChannelUsable);
 
-
   const unmapped: UnmappedChannelEntry[] = channels
     .filter((c) => !mappedIdx.has(c.idx))
-    .map((c) => ({
-      name: c.name,
-      freq: c.freq,
-      unit: c.unit,
-      nSamples: c.nSamples,
-      category: c.category,
-      status: classifyUnmapped(c),
-      min: c.min,
-      max: c.max,
-      avg: c.avg,
-    }));
+    .map((c) => {
+      const key = normName(c.name);
+      const meta = metaIdx.get(key);
+      const description = descIdx.get(key);
+      const toolsetMin =
+        meta?.hasSignificantRange && meta.minimum !== undefined ? meta.minimum : undefined;
+      const toolsetMax =
+        meta?.hasSignificantRange && meta.maximum !== undefined ? meta.maximum : undefined;
+      const toolsetUnit =
+        meta?.userUnit && meta.userUnit.trim().length > 0 ? meta.userUnit : undefined;
+      const toolsetQuantity =
+        meta?.quantity && meta.quantity.trim().length > 0 ? meta.quantity : undefined;
+      const hasToolsetMeta = Boolean(
+        toolsetQuantity || toolsetUnit || toolsetMin !== undefined || toolsetMax !== undefined || description,
+      );
+      return {
+        name: c.name,
+        freq: c.freq,
+        unit: c.unit,
+        nSamples: c.nSamples,
+        category: c.category,
+        status: classifyUnmapped(c),
+        min: c.min,
+        max: c.max,
+        avg: c.avg,
+        toolsetQuantity,
+        toolsetUnit,
+        toolsetMin,
+        toolsetMax,
+        toolsetDescription: description,
+        hasToolsetMeta,
+      } satisfies UnmappedChannelEntry;
+    });
 
   let unmappedWithData = 0;
   let unmappedConstant = 0;
   let unmappedEmpty = 0;
+  let unmappedWithDataDecipherable = 0;
+  let unmappedWithDataOpaque = 0;
   for (const u of unmapped) {
-    if (u.status === "data") unmappedWithData++;
-    else if (u.status === "constant") unmappedConstant++;
+    if (u.status === "data") {
+      unmappedWithData++;
+      if (u.hasToolsetMeta) unmappedWithDataDecipherable++;
+      else unmappedWithDataOpaque++;
+    } else if (u.status === "constant") unmappedConstant++;
     else unmappedEmpty++;
   }
 
   // "unmappedChannels" total counts only usable unmapped channels for
   // backwards compatibility with the existing header ratio.
-  // "unmappedChannels" total counts only usable unmapped channels for
-  // backwards compatibility with the existing header ratio.
   const unmappedUsableCount = unmappedWithData + unmappedConstant; // empty === !usable
-
 
   return {
     resolved,
@@ -171,7 +256,10 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
       unmappedWithData,
       unmappedConstant,
       unmappedEmpty,
+      unmappedWithDataDecipherable,
+      unmappedWithDataOpaque,
     },
   };
 }
+
 
