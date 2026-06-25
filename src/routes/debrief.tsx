@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CartesianGrid,
   Line,
@@ -43,6 +44,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
 
 function lapRowToLap(r: LapRow): Lap {
   return {
