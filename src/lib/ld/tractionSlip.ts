@@ -239,36 +239,9 @@ export function computeSlipSamples(
   return out;
 }
 
-/** Compute slip from already-resampled wheel-speed arrays on a common grid.
- *  Same formula and thresholds as the time-domain path. Where any input is
- *  NaN or vFront < V_MIN_KMH the output sample is NaN. The inCorner mask is
- *  derived per-sample with the SAME corner indicator. */
-export function computeSlipOnGrid(
-  vFL: Float32Array | undefined,
-  vFR: Float32Array | undefined,
-  vRL: Float32Array | undefined,
-  vRR: Float32Array | undefined,
-  cornerIndicatorThreshold: number,
-): { slip: Float32Array; inCorner: Uint8Array } | null {
-  if (!vFL || !vFR || !vRL || !vRR) return null;
-  const n = vFL.length;
-  if (vFR.length !== n || vRL.length !== n || vRR.length !== n) return null;
-  const slip = new Float32Array(n);
-  const inCorner = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    const a = vFL[i], b = vFR[i], r1 = vRL[i], r2 = vRR[i];
-    if (
-      !Number.isFinite(a) || !Number.isFinite(b) ||
-      !Number.isFinite(r1) || !Number.isFinite(r2)
-    ) { slip[i] = NaN; inCorner[i] = 0; continue; }
-    const vFront = (a + b) / 2;
-    if (vFront < V_MIN_KMH) { slip[i] = NaN; inCorner[i] = 0; continue; }
-    const vRear = (r1 + r2) / 2;
-    slip[i] = ((vRear - vFront) / vFront) * 100;
-    inCorner[i] = Math.abs(a - b) / vFront >= cornerIndicatorThreshold ? 1 : 0;
-  }
-  return { slip, inCorner };
-}
+// (computeSlipOnGrid is imported from ./slipFormula above — single source of truth.)
+
+
 
 /* ============================ Main builder ============================ */
 
