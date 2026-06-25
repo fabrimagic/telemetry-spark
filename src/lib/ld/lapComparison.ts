@@ -109,7 +109,23 @@ const CHANNEL_KEYS: ComparisonChannelKey[] = [
   "brakePressFront",
   "brakePressRear",
   "steeringAngle",
+  "suspTravelFL",
+  "suspTravelFR",
+  "suspTravelRL",
+  "suspTravelRR",
 ];
+
+/** Map a ComparisonChannelKey to the resolver's LogicalKey.
+ *  Most keys share the same identifier; suspension travel uses a dotted form. */
+function toLogicalKey(key: ComparisonChannelKey): LogicalKey {
+  switch (key) {
+    case "suspTravelFL": return "suspTravel.fl";
+    case "suspTravelFR": return "suspTravel.fr";
+    case "suspTravelRL": return "suspTravel.rl";
+    case "suspTravelRR": return "suspTravel.rr";
+    default: return key as LogicalKey;
+  }
+}
 
 /* ============================ Helpers ============================ */
 
