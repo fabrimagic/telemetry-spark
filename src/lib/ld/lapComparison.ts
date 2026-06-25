@@ -38,7 +38,12 @@ export type ComparisonChannelKey =
   | "wheelSpeedFR"
   | "wheelSpeedRL"
   | "wheelSpeedRR"
+  | "tyreTempFL"
+  | "tyreTempFR"
+  | "tyreTempRL"
+  | "tyreTempRR"
   | "slip";
+
 
 
 export interface ResampledLap {
