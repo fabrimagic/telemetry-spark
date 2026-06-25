@@ -1158,6 +1158,16 @@ function LapChannelTraces({
         cursorDist={cursorDist}
         onCursorDistChange={onCursorDistChange}
       />
+      <TractionSlipTrace
+        file={file}
+        lapCh={lapCh}
+        lap={lap}
+        laps={laps}
+        xMax={xMax}
+        cursorDist={cursorDist}
+        onCursorDistChange={onCursorDistChange}
+      />
+
     </div>
   );
 }
