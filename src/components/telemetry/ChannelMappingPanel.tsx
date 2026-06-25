@@ -9,7 +9,12 @@
 // logical keys flag features that will be degraded for this file.
 
 import { useMemo, useState } from "react";
-import { buildChannelMapping, type ChannelMappingReport } from "@/lib/ld/channelMapping";
+import {
+  buildChannelMapping,
+  type ChannelMappingReport,
+  type UnmappedStatus,
+} from "@/lib/ld/channelMapping";
+
 import type { LdFile } from "@/lib/ld/types";
 import {
   Table,
