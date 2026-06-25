@@ -37,6 +37,13 @@ export function ChannelMappingPanel({ file }: Props) {
   const [showUnmapped, setShowUnmapped] = useState(false);
   const [unmappedFilter, setUnmappedFilter] = useState("");
 
+  // Status ordering: data first (actionable), then constant, then empty.
+  const STATUS_ORDER: Record<UnmappedStatus, number> = {
+    data: 0,
+    constant: 1,
+    empty: 2,
+  };
+
   const filteredUnmapped = useMemo(() => {
     const q = unmappedFilter.trim().toLowerCase();
     const list = q
@@ -47,15 +54,31 @@ export function ChannelMappingPanel({ file }: Props) {
             c.unit.toLowerCase().includes(q),
         )
       : report.unmapped;
-    // Group by category for readability.
-    return [...list].sort((a, b) =>
-      a.category === b.category
-        ? a.name.localeCompare(b.name)
-        : a.category.localeCompare(b.category),
-    );
+    // Sort by status (data → constant → empty), then category, then name.
+    return [...list].sort((a, b) => {
+      const sa = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      if (sa !== 0) return sa;
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return a.name.localeCompare(b.name);
+    });
   }, [report.unmapped, unmappedFilter]);
 
+  const fmtNum = (v: number) =>
+    Number.isFinite(v) ? (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(3)) : "—";
+
+  const STATUS_LABEL: Record<UnmappedStatus, string> = {
+    data: "con dati",
+    constant: "costante",
+    empty: "vuoto",
+  };
+  const STATUS_DOT: Record<UnmappedStatus, string> = {
+    data: "bg-emerald-500",
+    constant: "bg-amber-500",
+    empty: "bg-muted-foreground",
+  };
+
   const { totals } = report;
+
 
   return (
     <div className="space-y-6">
