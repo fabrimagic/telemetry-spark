@@ -31,7 +31,13 @@ export type ComparisonChannelKey =
   | "suspTravelFL"
   | "suspTravelFR"
   | "suspTravelRL"
-  | "suspTravelRR";
+  | "suspTravelRR"
+  | "wheelSpeedFL"
+  | "wheelSpeedFR"
+  | "wheelSpeedRL"
+  | "wheelSpeedRR"
+  | "slip";
+
 
 export interface ResampledLap {
   /** Common uniform distance grid (m). */
