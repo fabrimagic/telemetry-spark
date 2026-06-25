@@ -28,6 +28,7 @@ import {
   type ComparisonChannelKey,
   type LapComparisonResult,
 } from "@/lib/ld/lapComparison";
+import { deriveCornerThreshold } from "@/lib/ld/tractionSlip";
 import {
   Table,
   TableBody,
@@ -36,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 
 const COLOR_REF = "#facc15"; // bright amber-yellow, highly visible against dark theme
 const COLOR_SEL = "#1f4a8a"; // cool blue, distinct from race-red
