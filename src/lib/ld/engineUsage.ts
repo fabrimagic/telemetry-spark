@@ -1,16 +1,24 @@
 // Engine Usage — characterises engine use throughout a stint from the RPM
-// channel.
+// channel, with REAL gear-shift telemetry when the engaged-gear channel is
+// present.
 //
-// Assumptions:
+// Assumptions / sources:
 // - rpm values produced by the parser are already in the correct unit
 //   (rev/min); no firmware-specific scaling is applied here.
-// - There is NO reliable gear channel in this dataset, therefore gear shifts
-//   are only ESTIMATED from RPM-drop events and labelled as such (spurious
-//   events such as throttle lifts and downshifts can be included).
-// - All thresholds are derived from the stint data itself (peak / quantile
-//   of the observed distribution); we never invent an absolute engine red-line.
-// - Channels resolved via resolveChannel; missing rpm => the section is empty.
-//   Missing throttle => traction-only metrics are omitted, the rest stays.
+// - When the `gear` logical channel is available (e.g. MoTeC "ecu gear",
+//   20 Hz, values 0..N with -1 as sentinel) gear shifts are REAL telemetry:
+//   every transition between two consecutive valid samples is one shift,
+//   labelled up/down by the sign of the delta. RPM at the transition is
+//   recorded alongside.
+// - When `gear` is NOT present we fall back to the legacy estimate from
+//   RPM-drop events, kept ONLY as a fallback and labelled as such (it can
+//   include spurious events such as throttle lifts and downshifts).
+// - All RPM thresholds are derived from the stint data itself (peak /
+//   quantile of the observed distribution); we never invent an absolute
+//   engine red-line.
+// - Channels resolved via resolveChannel; missing rpm => the section is
+//   empty. Missing throttle => traction-only metrics are omitted, the rest
+//   stays. paddleUp / paddleDown are read only as informative metadata.
 
 import type { Channel, LdFile } from "@/lib/ld/types";
 import type { LapRow } from "@/lib/ld/stintAnalysis";
@@ -28,6 +36,8 @@ export interface OverRevEvent {
   tPeak: number;
 }
 
+/** Legacy fallback: shift estimated from an RPM drop. Only populated when
+ *  the gear channel is absent. */
 export interface ShiftEvent {
   lap: number;
   /** RPM right before the drop. */
@@ -37,6 +47,18 @@ export interface ShiftEvent {
   dropRpm: number;
   /** Drop duration in seconds. */
   durationS: number;
+}
+
+/** Real gear-shift event derived from the engaged-gear channel. */
+export interface GearShiftEvent {
+  lap: number;
+  fromGear: number;
+  toGear: number;
+  kind: "up" | "down";
+  /** Absolute time of the transition (s). */
+  t: number;
+  /** RPM at the transition sample (when RPM is sampleable there). */
+  rpm?: number;
 }
 
 export interface LapUsageRow {
@@ -54,9 +76,13 @@ export interface LapUsageRow {
   fracAboveHigh?: number;
   /** Over-rev events detected in this lap. */
   overRevs: number;
-  /** Estimated shifts detected in this lap. */
-  shiftsEstimated: number;
-  /** Mean drop magnitude across the estimated shifts (RPM). */
+  /** Real upshifts in this lap (gear source) or estimated shifts (fallback). */
+  shiftsUp: number;
+  /** Real downshifts in this lap. 0 in the RPM-drop fallback. */
+  shiftsDown: number;
+  /** Mean RPM at upshift moments in this lap (gear source only). */
+  shiftUpRpmAvg?: number;
+  /** Legacy field used only by the RPM-drop fallback: mean RPM drop magnitude. */
   shiftDropAvg?: number;
 }
 
@@ -73,10 +99,29 @@ export interface EngineUsageThresholds {
   overRevQuantile: number;
   /** Numerical value of the over-rev threshold (rpm). */
   overRevThreshold: number;
-  /** Minimum drop (fraction of stint-max RPM) used to detect a shift. */
+  /** Minimum drop (fraction of stint-max RPM) used to detect a shift (fallback only). */
   shiftDropFrac: number;
-  /** Numerical value of the shift drop threshold (rpm). */
+  /** Numerical value of the shift drop threshold (rpm) (fallback only). */
   shiftDropAbs: number;
+}
+
+export type ShiftSource = "gear" | "rpm-estimate";
+
+/** Per-gear time / sample distribution across the stint. */
+export interface GearDistributionEntry {
+  gear: number;
+  /** Number of gear-channel samples in this gear across the stint. */
+  samples: number;
+  /** Equivalent time in seconds (samples / gear-channel freq). */
+  seconds: number;
+  /** Fraction of the total in-gear time (0..1). */
+  fraction: number;
+}
+
+/** Per-lap gear distribution (used by the panel as a bar group per lap). */
+export interface LapGearDistribution {
+  lap: number;
+  perGear: GearDistributionEntry[];
 }
 
 export interface EngineUsageSummary {
@@ -86,9 +131,19 @@ export interface EngineUsageSummary {
   meanRpmTractionAvg?: number;
   fracAboveHighAvg?: number;
   totalOverRevs: number;
-  totalShiftsEstimated: number;
+  /** Total upshifts (real when shiftSource=="gear", estimated otherwise). */
+  totalShiftsUp: number;
+  /** Total downshifts. 0 in the RPM-drop fallback. */
+  totalShiftsDown: number;
+  /** Mean RPM at upshift moments across the stint (gear source only). */
+  shiftUpRpmAvg?: number;
+  /** Where shift data came from. */
+  shiftSource: ShiftSource;
   /** True when traction gating could be applied to at least one lap. */
   hasThrottle: boolean;
+  /** True when paddleUp / paddleDown channels were detected and used as
+   *  metadata (purely informative). */
+  hasPaddles: boolean;
 }
 
 export type EngineUsage =
@@ -97,7 +152,14 @@ export type EngineUsage =
       kind: "ok";
       perLap: LapUsageRow[];
       overRevs: OverRevEvent[];
+      /** Real gear shifts (empty when shiftSource=="rpm-estimate"). */
+      gearShifts: GearShiftEvent[];
+      /** RPM-drop estimates (empty when shiftSource=="gear"). */
       shifts: ShiftEvent[];
+      /** Stint-wide gear distribution (empty when shiftSource=="rpm-estimate"). */
+      gearDistribution: GearDistributionEntry[];
+      /** Per-lap gear distribution (empty when shiftSource=="rpm-estimate"). */
+      lapGearDistribution: LapGearDistribution[];
       thresholds: EngineUsageThresholds;
       summary: EngineUsageSummary;
     };
@@ -124,6 +186,14 @@ function sampleAtRefIndex(other: Channel, refFreq: number, i: number): number | 
   return isValid(v) ? v : undefined;
 }
 
+/** Sample a channel at absolute time t (s). Returns undefined when invalid. */
+function sampleAtTime(c: Channel, t: number): number | undefined {
+  const j = Math.floor(t * (c.freq || 1));
+  if (j < 0 || j >= c.values.length) return undefined;
+  const v = c.values[j];
+  return isValid(v) ? v : undefined;
+}
+
 function quantile(sorted: number[], q: number): number | undefined {
   if (sorted.length === 0) return undefined;
   const pos = (sorted.length - 1) * q;
@@ -140,15 +210,19 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
     return { kind: "no-rpm", message: "Uso motore non disponibile: canale RPM assente." };
   }
   const throttle = resolveChannel(file.channels, "throttle");
+  const gear = resolveChannel(file.channels, "gear");
+  const paddleUp = resolveChannel(file.channels, "paddleUp");
+  const paddleDown = resolveChannel(file.channels, "paddleDown");
   const validLaps = lapRows.filter((l) => l.isValidLap);
   if (validLaps.length === 0) {
     return { kind: "no-rpm", message: "Nessun giro valido per analizzare l'uso motore." };
   }
 
+  const shiftSource: ShiftSource = gear ? "gear" : "rpm-estimate";
+
   // -------- Pass 1: collect stint-wide RPM samples & per-lap peak RPM ------
   const allRpm: number[] = [];
   const lapMaxRpm: Array<number | undefined> = [];
-  const lapMaxLapNum: number[] = [];
   let stintMaxRpm = -Infinity;
   let stintMaxLap = validLaps[0].lap;
 
@@ -170,7 +244,6 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
         stintMaxLap = lap.lap;
       }
     }
-    lapMaxLapNum.push(lap.lap);
   }
 
   if (!Number.isFinite(stintMaxRpm) || stintMaxRpm <= 0 || allRpm.length === 0) {
@@ -203,6 +276,10 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
   const perLap: LapUsageRow[] = [];
   const overRevs: OverRevEvent[] = [];
   const shifts: ShiftEvent[] = [];
+  const gearShifts: GearShiftEvent[] = [];
+  const lapGearDistribution: LapGearDistribution[] = [];
+  // Stint-wide accumulator: samples-per-gear.
+  const stintGearSamples = new Map<number, number>();
 
   for (let li = 0; li < validLaps.length; li++) {
     const lap = validLaps[li];
@@ -230,14 +307,13 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
       ? lapThrottlePeak * throttleHighFrac
       : null;
 
-    // Event-tracking state
+    // Event-tracking state (over-rev)
     let inOver = false;
     let overPeak = -Infinity;
     let overStartT = 0;
     let overPeakT = 0;
 
-    // Shift detection: track local peak then look for a fast drop ≥ shiftDropAbs
-    // bounded in time (≤1 s) followed by a rise. State machine.
+    // RPM-drop fallback shift detection state
     let localPeak = -Infinity;
     let localPeakI = -1;
     let droppingFrom = -Infinity;
@@ -262,7 +338,7 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
 
       if (v >= highRpmThreshold) highTime += dt;
 
-      // Over-rev tracking (samples above overRevThreshold)
+      // Over-rev tracking
       if (v > overRevThreshold) {
         if (!inOver) {
           inOver = true;
@@ -286,26 +362,22 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
         overPeak = -Infinity;
       }
 
-      // Shift estimation: detect drop from a recent peak. Require high
-      // throttle around the peak when throttle is available (upshift hint).
-      if (lastRpm !== -Infinity) {
+      // RPM-drop fallback shift estimation (used only when gear absent).
+      if (!gear && lastRpm !== -Infinity) {
         if (v > localPeak) {
           localPeak = v;
           localPeakI = i;
           droppingFrom = -Infinity;
           droppingFromI = -1;
         }
-        // Detect start of a drop
         if (droppingFrom === -Infinity && v < lastRpm && localPeak !== -Infinity) {
           droppingFrom = localPeak;
           droppingFromI = localPeakI;
         }
-        // Detect end of drop = local minimum (rising again)
         if (droppingFrom !== -Infinity && v > lastRpm) {
           const drop = droppingFrom - lastRpm;
           const durationS = (i - droppingFromI) / freq;
           if (drop >= shiftDropAbs && durationS > 0 && durationS <= 1.0) {
-            // Optional throttle gate around the peak: throttle high at peak
             let throttleOk = true;
             if (throttleGate !== null && droppingFromI >= 0) {
               const tv = sampleAtRefIndex(throttle!, freq, droppingFromI);
@@ -321,7 +393,6 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
               });
             }
           }
-          // Reset to track next peak/drop cycle
           localPeak = v;
           localPeakI = i;
           droppingFrom = -Infinity;
@@ -331,7 +402,6 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
       lastRpm = v;
     }
 
-    // Close any over-rev still open at lap end
     if (inOver) {
       overRevs.push({
         lap: lap.lap,
@@ -342,12 +412,83 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
       });
     }
 
+    // -------- Real gear-shift detection (gear channel iteration) ---------
+    let lapShiftsUp = 0;
+    let lapShiftsDown = 0;
+    let lapUpRpmSum = 0;
+    let lapUpRpmN = 0;
+    const lapGearSamples = new Map<number, number>();
+
+    if (gear) {
+      const gFreq = gear.freq || 1;
+      const gFrom = Math.max(0, Math.floor(lap.tStart * gFreq));
+      const gTo = Math.min(gear.values.length - 1, Math.ceil(lap.tEnd * gFreq));
+      let prev: number | undefined;
+      for (let i = gFrom; i <= gTo; i++) {
+        const raw = gear.values[i];
+        if (!isValid(raw)) {
+          prev = undefined;
+          continue;
+        }
+        const g = Math.round(raw);
+        lapGearSamples.set(g, (lapGearSamples.get(g) ?? 0) + 1);
+        stintGearSamples.set(g, (stintGearSamples.get(g) ?? 0) + 1);
+        if (prev !== undefined && g !== prev) {
+          const t = i / gFreq;
+          const rpmAtShift = sampleAtTime(rpm, t);
+          const evt: GearShiftEvent = {
+            lap: lap.lap,
+            fromGear: prev,
+            toGear: g,
+            kind: g > prev ? "up" : "down",
+            t,
+            rpm: rpmAtShift,
+          };
+          gearShifts.push(evt);
+          if (evt.kind === "up") {
+            lapShiftsUp++;
+            if (rpmAtShift !== undefined) {
+              lapUpRpmSum += rpmAtShift;
+              lapUpRpmN++;
+            }
+          } else {
+            lapShiftsDown++;
+          }
+        }
+        prev = g;
+      }
+
+      const totalLapSamples = Array.from(lapGearSamples.values()).reduce((a, b) => a + b, 0);
+      const perGear: GearDistributionEntry[] = Array.from(lapGearSamples.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([g, n]) => ({
+          gear: g,
+          samples: n,
+          seconds: n / gFreq,
+          fraction: totalLapSamples > 0 ? n / totalLapSamples : 0,
+        }));
+      lapGearDistribution.push({ lap: lap.lap, perGear });
+    }
+
+    // Per-lap aggregates: prefer real gear-derived counts; fall back to estimate.
     const overInLap = overRevs.filter((e) => e.lap === lap.lap).length;
-    const shiftsInLap = shifts.filter((e) => e.lap === lap.lap);
-    const shiftDropAvg =
-      shiftsInLap.length === 0
-        ? undefined
-        : shiftsInLap.reduce((a, b) => a + b.dropRpm, 0) / shiftsInLap.length;
+    let shiftsUp: number;
+    let shiftsDown: number;
+    let shiftUpRpmAvg: number | undefined;
+    let shiftDropAvg: number | undefined;
+    if (gear) {
+      shiftsUp = lapShiftsUp;
+      shiftsDown = lapShiftsDown;
+      shiftUpRpmAvg = lapUpRpmN > 0 ? lapUpRpmSum / lapUpRpmN : undefined;
+    } else {
+      const shiftsInLap = shifts.filter((e) => e.lap === lap.lap);
+      shiftsUp = shiftsInLap.length;
+      shiftsDown = 0;
+      shiftDropAvg =
+        shiftsInLap.length === 0
+          ? undefined
+          : shiftsInLap.reduce((a, b) => a + b.dropRpm, 0) / shiftsInLap.length;
+    }
 
     const tractionGated = throttleGate !== null && tracN > 0;
     perLap.push({
@@ -360,18 +501,50 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
       tractionGated,
       fracAboveHigh: totalTime > 0 ? highTime / totalTime : undefined,
       overRevs: overInLap,
-      shiftsEstimated: shiftsInLap.length,
+      shiftsUp,
+      shiftsDown,
+      shiftUpRpmAvg,
       shiftDropAvg,
     });
   }
 
-  // -------- Summary --------------------------------------------------------
+  // -------- Stint-wide gear distribution --------------------------------
+  let gearDistribution: GearDistributionEntry[] = [];
+  if (gear) {
+    const gFreq = gear.freq || 1;
+    const totalSamples = Array.from(stintGearSamples.values()).reduce((a, b) => a + b, 0);
+    gearDistribution = Array.from(stintGearSamples.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([g, n]) => ({
+        gear: g,
+        samples: n,
+        seconds: n / gFreq,
+        fraction: totalSamples > 0 ? n / totalSamples : 0,
+      }));
+  }
+
+  // -------- Summary ------------------------------------------------------
   const meanTracVals = perLap
     .map((r) => r.meanRpmTraction)
     .filter((v): v is number => v !== undefined && Number.isFinite(v));
   const fracHighVals = perLap
     .map((r) => r.fracAboveHigh)
     .filter((v): v is number => v !== undefined && Number.isFinite(v));
+
+  let totalShiftsUp: number;
+  let totalShiftsDown: number;
+  let shiftUpRpmAvg: number | undefined;
+  if (gear) {
+    const ups = gearShifts.filter((s) => s.kind === "up");
+    totalShiftsUp = ups.length;
+    totalShiftsDown = gearShifts.length - ups.length;
+    const rpms = ups.map((s) => s.rpm).filter((v): v is number => v !== undefined);
+    shiftUpRpmAvg = rpms.length > 0 ? rpms.reduce((a, b) => a + b, 0) / rpms.length : undefined;
+  } else {
+    totalShiftsUp = shifts.length;
+    totalShiftsDown = 0;
+    shiftUpRpmAvg = undefined;
+  }
 
   const summary: EngineUsageSummary = {
     lapsAnalysed: validLaps.length,
@@ -386,9 +559,23 @@ export function buildEngineUsage(file: LdFile, lapRows: LapRow[]): EngineUsage {
         ? fracHighVals.reduce((a, b) => a + b, 0) / fracHighVals.length
         : undefined,
     totalOverRevs: overRevs.length,
-    totalShiftsEstimated: shifts.length,
+    totalShiftsUp,
+    totalShiftsDown,
+    shiftUpRpmAvg,
+    shiftSource,
     hasThrottle: !!throttle,
+    hasPaddles: !!(paddleUp || paddleDown),
   };
 
-  return { kind: "ok", perLap, overRevs, shifts, thresholds, summary };
+  return {
+    kind: "ok",
+    perLap,
+    overRevs,
+    gearShifts,
+    shifts,
+    gearDistribution,
+    lapGearDistribution,
+    thresholds,
+    summary,
+  };
 }
