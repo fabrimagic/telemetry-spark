@@ -222,6 +222,10 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
             <span className="text-emerald-600 dark:text-emerald-400">
               con dati: {totals.unmappedWithData}
             </span>
+            <span className="ml-1 text-muted-foreground">
+              (decifrabili: {totals.unmappedWithDataDecipherable} · opachi:{" "}
+              {totals.unmappedWithDataOpaque})
+            </span>
             {" · "}
             <span className="text-amber-600 dark:text-amber-400">
               costanti: {totals.unmappedConstant}
@@ -243,21 +247,23 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
               type="search"
               value={unmappedFilter}
               onChange={(e) => setUnmappedFilter(e.target.value)}
-              placeholder="Filtra per nome / categoria / unità…"
+              placeholder="Filtra per nome / categoria / unità / descrizione…"
               className="h-7 flex-1 min-w-[200px] rounded-none border border-ink/40 bg-card px-2 font-mono text-xs"
             />
           )}
         </div>
         {showUnmapped && (
-          <div className="max-h-[420px] overflow-y-auto border border-ink/20">
+          <div className="max-h-[420px] overflow-x-auto overflow-y-auto border border-ink/20">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--ink)/0.3)]">
                 <TableRow className="border-b border-ink/30">
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Stato</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Categoria</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Nome canale</TableHead>
-                  <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Hz</TableHead>
+                  <TableHead className="font-mono text-[10px] uppercase tracking-widest">Descrizione / quantità (toolset)</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-widest">Unità</TableHead>
+                  <TableHead className="font-mono text-[10px] uppercase tracking-widest">Range dichiarato</TableHead>
+                  <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Hz</TableHead>
                   <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">N camp.</TableHead>
                   <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Min</TableHead>
                   <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">Max</TableHead>
@@ -267,26 +273,63 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
               <TableBody>
                 {filteredUnmapped.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="font-mono text-xs text-muted-foreground">
+                    <TableCell colSpan={11} className="font-mono text-xs text-muted-foreground">
                       Nessun canale corrisponde al filtro.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredUnmapped.map((c, i) => {
                     const hasData = c.status === "data";
+                    const descOrQty = c.toolsetDescription ?? c.toolsetQuantity;
+                    const unit = c.unit && c.unit.length > 0 ? c.unit : c.toolsetUnit ?? "";
+                    const range =
+                      c.toolsetMin !== undefined && c.toolsetMax !== undefined
+                        ? `${fmtNum(c.toolsetMin)} … ${fmtNum(c.toolsetMax)}`
+                        : "";
                     return (
                       <TableRow
                         key={`${c.name}-${i}`}
                         className={`border-b border-ink/10 ${i % 2 ? "bg-muted/40" : ""} ${hasData ? "" : "opacity-70"}`}
                       >
-                        <TableCell className="font-mono text-[11px]">
+                        <TableCell className="font-mono text-[11px] whitespace-nowrap">
                           <span className={`mr-2 inline-block h-2 w-2 rounded-full ${STATUS_DOT[c.status]}`} />
                           {STATUS_LABEL[c.status]}
+                          {hasData && (
+                            <span
+                              className={`ml-2 inline-block rounded-sm border px-1 text-[9px] uppercase tracking-wider ${
+                                c.hasToolsetMeta
+                                  ? "border-emerald-500/60 text-emerald-600 dark:text-emerald-400"
+                                  : "border-muted-foreground/40 text-muted-foreground"
+                              }`}
+                              title={
+                                c.hasToolsetMeta
+                                  ? "Metadati toolset disponibili — candidato immediato"
+                                  : "Nessun metadato toolset — richiede conoscenza esterna"
+                              }
+                            >
+                              {c.hasToolsetMeta ? "meta" : "no meta"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="font-mono text-[11px] text-muted-foreground">{c.category}</TableCell>
                         <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                        <TableCell className="font-mono text-[11px] text-muted-foreground max-w-[280px]">
+                          {descOrQty ? (
+                            <>
+                              {descOrQty}
+                              {c.toolsetDescription && c.toolsetQuantity ? (
+                                <span className="ml-1 opacity-70">[{c.toolsetQuantity}]</span>
+                              ) : null}
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{unit || "—"}</TableCell>
+                        <TableCell className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {range || "—"}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-xs tabular-nums">{c.freq}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.unit || "—"}</TableCell>
                         <TableCell className="text-right font-mono text-xs tabular-nums">{c.nSamples}</TableCell>
                         <TableCell className="text-right font-mono text-xs tabular-nums">
                           {hasData ? fmtNum(c.min) : "—"}
@@ -306,6 +349,7 @@ export function ChannelMappingPanel({ file, toolsetMeta, toolsetChannels }: Prop
           </div>
         )}
       </section>
+
 
     </div>
   );
