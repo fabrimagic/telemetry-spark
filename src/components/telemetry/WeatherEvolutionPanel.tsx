@@ -814,7 +814,7 @@ export function WeatherEvolutionPanel({ file, laps }: { file: LdFile; laps: LapR
                   type="stepAfter"
                   dataKey="wet"
                   name="Wet %"
-                  stroke="hsl(var(--race-red))"
+                  stroke="#0ea5e9"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                   connectNulls
