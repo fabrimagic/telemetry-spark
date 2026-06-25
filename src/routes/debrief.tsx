@@ -26,6 +26,8 @@ import { SuspensionPanel } from "@/components/telemetry/SuspensionPanel";
 import { EngineUsagePanel } from "@/components/telemetry/EngineUsagePanel";
 import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPanel";
 import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
+import { GGDiagramPanel } from "@/components/telemetry/GGDiagramPanel";
+
 
 import {
   Table,
@@ -364,6 +366,8 @@ function DebriefPage() {
               <TabsTrigger value="consistency" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Driving Consistency</TabsTrigger>
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
               <TabsTrigger value="suspension" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Suspension &amp; Platform</TabsTrigger>
+              <TabsTrigger value="gg" className="rounded-none font-mono text-[10px] uppercase tracking-widest">G-G Diagram</TabsTrigger>
+
             </TabsList>
 
             <TabsContent value="weather" className="mt-4">
@@ -465,6 +469,22 @@ function DebriefPage() {
                           />
                         </Section>
                       </div>
+
+                      {/* Per-lap G-G */}
+                      <div className="col-span-12 min-w-0 xl:col-span-5">
+                        <Section title="G-G (questo giro)">
+                          <GGDiagramPanel
+                            file={file}
+                            laps={[selected]}
+                            mode="scatter"
+                            size={280}
+                            compact
+                            engineOptions={{ maxScatter: 1500 }}
+                            subtitle={`Lap ${selected.lap} · scatter decimato`}
+                          />
+                        </Section>
+                      </div>
+
 
                       {/* ABS hits */}
                       {has.abs && (
@@ -592,7 +612,20 @@ function DebriefPage() {
                 <SuspensionPanel file={file} laps={laps} />
               </PaperPanel>
             </TabsContent>
+
+            <TabsContent value="gg" className="mt-4">
+              <PaperPanel eyebrow="Dynamics" title="G-G Diagram">
+                <GGDiagramPanel
+                  file={file}
+                  laps={laps.filter((l) => l.isValidLap)}
+                  mode="density"
+                  size={420}
+                  subtitle="Aggregato stint · solo giri validi"
+                />
+              </PaperPanel>
+            </TabsContent>
           </Tabs>
+
         </div>
 
 
