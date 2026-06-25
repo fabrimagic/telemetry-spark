@@ -153,9 +153,10 @@ export function buildChannelMapping(file: LdFile): ChannelMappingReport {
 
   // "unmappedChannels" total counts only usable unmapped channels for
   // backwards compatibility with the existing header ratio.
-  const unmappedUsableCount = unmapped.filter((u) => usableIdx.has(
-    channels.find((c) => c.name === u.name)?.idx ?? -1,
-  )).length;
+  // "unmappedChannels" total counts only usable unmapped channels for
+  // backwards compatibility with the existing header ratio.
+  const unmappedUsableCount = unmappedWithData + unmappedConstant; // empty === !usable
+
 
   return {
     resolved,
