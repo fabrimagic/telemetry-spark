@@ -78,10 +78,16 @@ export type LogicalKey =
   | "paddleUp"
   | "paddleDown"
 
+  // Suspension travel — reliable (oscillates around zero, ±15-35 mm)
+  | "suspTravel.fl" | "suspTravel.fr" | "suspTravel.rl" | "suspTravel.rr"
+  // Ride height — RAW / not calibrated (non-physical range, zero zones)
+  | "rideHeight.fl" | "rideHeight.fr" | "rideHeight.rl" | "rideHeight.rr"
+
   // Per-wheel corner channels
   | "brakeDiscTemp.fl" | "brakeDiscTemp.fr" | "brakeDiscTemp.rl" | "brakeDiscTemp.rr"
   | "tyreTemp.fl"      | "tyreTemp.fr"      | "tyreTemp.rl"      | "tyreTemp.rr"
   | "tyrePress.fl"     | "tyrePress.fr"     | "tyrePress.rl"     | "tyrePress.rr";
+
 
 /** Build the four-corner entries for a base logical key, expanding a list of
  *  base name patterns into the four wheels with all the position spellings
