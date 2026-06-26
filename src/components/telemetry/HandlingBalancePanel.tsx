@@ -65,7 +65,7 @@ function BalanceScale({ stats, band }: { stats: BalanceStats; band: number }) {
   );
 }
 
-function StatBlock({ title, s }: { title: string; s: BalanceStats }) {
+function StatBlock({ title, s, band }: { title: string; s: BalanceStats; band: number }) {
   return (
     <div className="border border-ink/30 p-3">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -74,7 +74,9 @@ function StatBlock({ title, s }: { title: string; s: BalanceStats }) {
       <div className="mt-2 text-xs font-mono">
         <div className="text-sm">{TENDENCY_LABEL[s.tendency]}</div>
         <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
-          <div className="text-muted-foreground">Indice mediano</div>
+          <div className="text-muted-foreground">Indice relativo (mediano)</div>
+          <div className="text-right">{fmtIdx(s.medianRelative)}</div>
+          <div className="text-muted-foreground">Indice grezzo (mediano)</div>
           <div className="text-right">{fmtIdx(s.medianIndex)}</div>
           <div className="text-muted-foreground">% sottosterzo</div>
           <div className="text-right">{fmtFrac(s.fracUnder)}</div>
@@ -87,7 +89,7 @@ function StatBlock({ title, s }: { title: string; s: BalanceStats }) {
         </div>
       </div>
       <div className="mt-3">
-        <BalanceScale stats={s} />
+        <BalanceScale stats={s} band={band} />
       </div>
     </div>
   );
