@@ -28,6 +28,7 @@ import { WeatherEvolutionPanel } from "@/components/telemetry/WeatherEvolutionPa
 import { ChannelMappingPanel } from "@/components/telemetry/ChannelMappingPanel";
 import { GGDiagramPanel } from "@/components/telemetry/GGDiagramPanel";
 import { TractionSlipPanel } from "@/components/telemetry/TractionSlipPanel";
+import { HandlingBalancePanel } from "@/components/telemetry/HandlingBalancePanel";
 
 
 import {
