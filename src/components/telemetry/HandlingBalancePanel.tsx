@@ -31,22 +31,25 @@ function fmtFrac(v: number): string {
   return Number.isFinite(v) ? `${(v * 100).toFixed(1)} %` : "—";
 }
 
-/** Visual scale: under ↔ neutral ↔ over. Marker = median index, clipped
- *  to a display window of [0.5, 1.5]. NO absolute degree readout. */
-function BalanceScale({ stats }: { stats: BalanceStats }) {
-  const idx = stats.medianIndex;
+/** Visual scale: under ↔ neutral ↔ over. Marker = RELATIVE median index
+ *  (= rawIndex / stintReference, ≈1 = stint-typical balance), clipped to
+ *  a display window of [0.5, 1.5]. NO absolute degree readout. */
+function BalanceScale({ stats, band }: { stats: BalanceStats; band: number }) {
+  const rel = stats.medianRelative;
   const min = 0.5, max = 1.5;
-  const clipped = Number.isFinite(idx) ? Math.min(max, Math.max(min, idx)) : 1;
+  const clipped = Number.isFinite(rel) ? Math.min(max, Math.max(min, rel)) : 1;
   const pct = ((clipped - min) / (max - min)) * 100;
+  const lo = 1 - band;
+  const hi = 1 + band;
   return (
     <div className="space-y-1">
       <div className="relative h-3 w-full border border-ink/40 bg-card">
-        {/* neutral band shading */}
+        {/* neutral band shading (relative to stint reference) */}
         <div
           className="absolute top-0 bottom-0 bg-ink/10"
-          style={{ left: `${((0.85 - min) / (max - min)) * 100}%`, right: `${100 - ((1.15 - min) / (max - min)) * 100}%` }}
+          style={{ left: `${((lo - min) / (max - min)) * 100}%`, right: `${100 - ((hi - min) / (max - min)) * 100}%` }}
         />
-        {Number.isFinite(idx) && (
+        {Number.isFinite(rel) && (
           <div
             className="absolute top-[-3px] bottom-[-3px] w-[2px] bg-foreground"
             style={{ left: `calc(${pct}% - 1px)` }}
@@ -54,9 +57,9 @@ function BalanceScale({ stats }: { stats: BalanceStats }) {
         )}
       </div>
       <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        <span>← sottosterzo</span>
-        <span>neutro</span>
-        <span>sovrasterzo →</span>
+        <span>← più sottosterzo</span>
+        <span>media stint</span>
+        <span>più sovrasterzo →</span>
       </div>
     </div>
   );
