@@ -375,7 +375,9 @@ function DebriefPage() {
               <TabsTrigger value="thermal" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Thermal Balance</TabsTrigger>
               <TabsTrigger value="suspension" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Suspension &amp; Platform</TabsTrigger>
               <TabsTrigger value="gg" className="rounded-none font-mono text-[10px] uppercase tracking-widest">G-G Diagram</TabsTrigger>
+              <TabsTrigger value="handling" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Handling Balance</TabsTrigger>
               <TabsTrigger value="traction" className="rounded-none font-mono text-[10px] uppercase tracking-widest">Traction Slip</TabsTrigger>
+
 
             </TabsList>
 
