@@ -106,13 +106,23 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
     );
   }
 
-  const { perLap, stint, zones, hasZones, lapsAnalysed, params, yawUnit } = result;
+  const {
+    perLap, stint, zones, hasZones, lapsAnalysed, params,
+    yawUnit, yawUnitMethod, yawUnitRaw, yawP95, stintReferenceIndex,
+  } = result;
+
+  const yawUnitSourceLabel =
+    yawUnitMethod === "declared"
+      ? `dichiarata dal canale ("${yawUnitRaw}")`
+      : yawUnitMethod === "data-driven"
+        ? `inferita dai dati (p95|yaw| in curva = ${Number.isFinite(yawP95!) ? yawP95!.toFixed(2) : "—"})`
+        : "fallback (nessun dato sufficiente per inferire)";
 
   return (
     <div className="space-y-5">
       <div className="border border-amber-500/40 bg-amber-500/5 p-3 text-[11px] leading-snug">
         <div className="font-mono text-[10px] uppercase tracking-widest text-amber-700 dark:text-amber-400">
-          Avvertenza interpretativa
+          Avvertenza interpretativa — calibrazione assoluta inaffidabile
         </div>
         <p className="mt-1">
           Indice basato su un <strong>modello a bicicletta semplificato</strong>:
@@ -120,39 +130,51 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
           di sospensione/telaio. Lo yaw atteso è calcolato come{" "}
           <code>v · δ / L</code> con <strong>L = {params.wheelbaseM} m</strong>{" "}
           (passo Porsche 992 GT3 R, valore ufficiale) e{" "}
-          <strong>steering ratio ≈ {params.steeringRatio}:1</strong> —{" "}
-          quest'ultimo è una <em>stima</em> per GT3 e influisce sulla{" "}
-          <strong>scala</strong> dell'indice ma <strong>non</strong> sull'inversione
-          della tendenza. Il risultato è un{" "}
-          <strong>indicatore relativo di tendenza</strong>, mai una misura
-          assoluta in gradi. Valido solo con v &gt; {params.vMinKmh}&nbsp;km/h e
-          sterzo &gt; {params.steerMinDeg}°. Allineamento dei canali per{" "}
-          <strong>tempo reale</strong> (non per indice di campione) — yaw rate
-          letto come <code>{yawUnit}</code>. Il giudizio finale resta
-          all'ingegnere, da incrociare con feedback pilota e dati gomme/sospensioni.
+          <strong>steering ratio ≈ {params.steeringRatio}:1</strong>{" "}
+          (<em>stima</em> per GT3). Valido solo con v &gt; {params.vMinKmh}&nbsp;km/h
+          e sterzo &gt; {params.steerMinDeg}°. Allineamento dei canali per{" "}
+          <strong>tempo reale</strong> (non per indice di campione).
+        </p>
+        <p className="mt-2">
+          <strong>Unità yaw rate:</strong> <code>{yawUnit}</code> — {yawUnitSourceLabel}.
+          Quando il canale non dichiara l'unità, viene inferita dall'ordine di
+          grandezza dei dati: yaw in curva su una GT3 è ~0.3–0.8 rad/s
+          (≈ 17–45 °/s), quindi un p95(|yaw|) sotto ~10 implica rad/s.
+        </p>
+        <p className="mt-2">
+          <strong>Valore assoluto dell'indice NON è una calibrazione affidabile:</strong>{" "}
+          dipende dallo steering ratio stimato e dalle semplificazioni del modello.
+          Per questo la tendenza è espressa come <strong>scostamento relativo dal
+          bilanciamento medio della macchina nello stint</strong>{" "}
+          (riferimento di stint = mediana indice grezzo ={" "}
+          <code>{Number.isFinite(stintReferenceIndex) ? stintReferenceIndex.toFixed(2) : "—"}</code>),
+          non come sotto/sovrasterzo assoluto. Ciò che è robusto è{" "}
+          <strong>DOVE e QUANDO la macchina si discosta dal suo comportamento tipico</strong>,
+          non il numero assoluto. Il giudizio finale resta all'ingegnere.
         </p>
       </div>
 
       <div>
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          Aggregato stint · {lapsAnalysed} giri validi
+          Aggregato stint · {lapsAnalysed} giri validi · riferimento ≡ mediana stint
         </div>
         <div className="mt-2">
-          <StatBlock title="Tendenza prevalente · stint" s={stint} />
+          <StatBlock title="Tendenza prevalente · stint" s={stint} band={params.neutralBand} />
         </div>
       </div>
 
       <div>
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          Evoluzione per giro · cambia bilanciamento col degrado?
+          Evoluzione per giro · scostamento dal bilanciamento medio dello stint
         </div>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse font-mono text-xs">
             <thead>
               <tr className="border-b border-ink/40 text-[10px] uppercase tracking-widest text-muted-foreground">
                 <th className="px-2 py-1 text-left">Lap</th>
-                <th className="px-2 py-1 text-left">Tendenza</th>
-                <th className="px-2 py-1 text-right">Idx mediano</th>
+                <th className="px-2 py-1 text-left">Tendenza (rel. stint)</th>
+                <th className="px-2 py-1 text-right">Idx relativo</th>
+                <th className="px-2 py-1 text-right">Idx grezzo</th>
                 <th className="px-2 py-1 text-right">% sotto</th>
                 <th className="px-2 py-1 text-right">% neutro</th>
                 <th className="px-2 py-1 text-right">% sovra</th>
@@ -164,6 +186,7 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
                 <tr key={r.lap} className="border-b border-ink/10">
                   <td className="px-2 py-1 text-left tabular-nums">L{r.lap}</td>
                   <td className="px-2 py-1 text-left">{TENDENCY_LABEL[r.stats.tendency]}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{fmtIdx(r.stats.medianRelative)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{fmtIdx(r.stats.medianIndex)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{fmtFrac(r.stats.fracUnder)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{fmtFrac(r.stats.fracNeutral)}</td>
