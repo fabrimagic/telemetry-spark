@@ -212,8 +212,8 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
                   <th className="px-2 py-1 text-right">Inizio (m)</th>
                   <th className="px-2 py-1 text-right">Apex (m)</th>
                   <th className="px-2 py-1 text-right">Fine (m)</th>
-                  <th className="px-2 py-1 text-left">Tendenza</th>
-                  <th className="px-2 py-1 text-right">Idx mediano</th>
+                <th className="px-2 py-1 text-left">Tendenza (rel. stint)</th>
+                  <th className="px-2 py-1 text-right">Idx relativo</th>
                   <th className="px-2 py-1 text-right">% sotto</th>
                   <th className="px-2 py-1 text-right">% sovra</th>
                   <th className="px-2 py-1 text-right">Campioni</th>
@@ -227,7 +227,7 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
                     <td className="px-2 py-1 text-right tabular-nums">{z.zone.apexDist.toFixed(0)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{z.zone.endDist.toFixed(0)}</td>
                     <td className="px-2 py-1 text-left">{TENDENCY_LABEL[z.stats.tendency]}</td>
-                    <td className="px-2 py-1 text-right tabular-nums">{fmtIdx(z.stats.medianIndex)}</td>
+                    <td className="px-2 py-1 text-right tabular-nums">{fmtIdx(z.stats.medianRelative)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{fmtFrac(z.stats.fracUnder)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{fmtFrac(z.stats.fracOver)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{z.stats.count.toLocaleString()}</td>
@@ -237,10 +237,11 @@ export function HandlingBalancePanel({ file, laps }: HandlingBalancePanelProps) 
             </table>
             <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
               Le zone-curva sono quelle rilevate dal motore Lap Comparison sul
-              giro di riferimento (fastest valido). La tendenza è qualitativa
-              attorno al valore neutro (banda ±{(params.neutralBand * 100).toFixed(0)}%).
-              Da leggere come confronto relativo fra curve, non come misura
-              assoluta in gradi.
+              giro di riferimento (fastest valido). L'indice è{" "}
+              <strong>relativo alla mediana di stint</strong> (1 ≈ comportamento
+              tipico della macchina in questa sessione, banda neutra ±
+              {(params.neutralBand * 100).toFixed(0)}%): legge DOVE la macchina si
+              discosta dal suo bilanciamento medio, non una misura assoluta in gradi.
             </p>
           </div>
         ) : (
