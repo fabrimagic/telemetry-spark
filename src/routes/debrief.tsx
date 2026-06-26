@@ -638,11 +638,18 @@ function DebriefPage() {
               </PaperPanel>
             </TabsContent>
 
+            <TabsContent value="handling" className="mt-4">
+              <PaperPanel eyebrow="Dynamics" title="Handling Balance (Understeer/Oversteer)">
+                <HandlingBalancePanel file={file} laps={laps} />
+              </PaperPanel>
+            </TabsContent>
+
             <TabsContent value="traction" className="mt-4">
               <PaperPanel eyebrow="Traction" title="Traction Slip">
                 <TractionSlipPanel file={file} laps={laps} />
               </PaperPanel>
             </TabsContent>
+
           </Tabs>
 
         </div>
