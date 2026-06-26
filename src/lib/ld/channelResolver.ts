@@ -42,8 +42,10 @@ export type LogicalKey =
   | "rpm"
   | "throttle"
   | "steeringAngle"
+  | "yawRate"
   | "brakePressFront"
   | "brakePressRear"
+
   // IMU / chassis accelerations (G). Sign convention verified on the project
   // reference files: accLong < 0 = braking, > 0 = acceleration (asymmetric,
   // braking peaks larger in magnitude); accLat symmetric. NEVER use the
@@ -156,9 +158,15 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   ],
   steeringAngle: [
     eq("log asteer"), eq("asteer"),
-    eq("steering angle"), eq("steering"), eq("steer"),
+    eq("steering angle"), eq("steering"), eq("steer"), eq("steer angle"),
     inc("steering angle"), inc("steer angle"),
   ],
+  yawRate: [
+    eq("sclu yaw rate"), eq("yaw rate"), eq("yaw"),
+    eq("imu gyroz"), eq("imu gyro z"), eq("gyro z"),
+    inc("yaw rate"),
+  ],
+
   brakePressFront: [
     eq("log pbrake f"), eq("pbrake f"),
     eq("brake pressure front"), eq("brake press f"), eq("brake press front"),
