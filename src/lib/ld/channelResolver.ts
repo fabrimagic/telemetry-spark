@@ -42,8 +42,10 @@ export type LogicalKey =
   | "rpm"
   | "throttle"
   | "steeringAngle"
+  | "yawRate"
   | "brakePressFront"
   | "brakePressRear"
+
   // IMU / chassis accelerations (G). Sign convention verified on the project
   // reference files: accLong < 0 = braking, > 0 = acceleration (asymmetric,
   // braking peaks larger in magnitude); accLat symmetric. NEVER use the
