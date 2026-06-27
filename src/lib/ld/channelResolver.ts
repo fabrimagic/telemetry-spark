@@ -138,17 +138,30 @@ const TYRE_TEMP_CORNERS  = corners(["tpms temp", "tyre temp", "tire temp"]);
 const TYRE_PRESS_CORNERS = corners(["tpms press", "tpms pressure", "tyre press", "tyre pressure", "tire pressure"]);
 
 /** The pattern catalogue. Order matters: more specific / higher-quality
- *  variants come FIRST so that they win over loose substring fallbacks. */
+ *  variants come FIRST so that they win over loose substring fallbacks.
+ *
+ *  ---- Ferrari 296 GT3 / 296 GT3 Evo aliases ----
+ *  The aliases below (grouped under the existing logical keys) are derived
+ *  from the AiM ECU integration document for the Ferrari 296 GT3 protocol
+ *  ("FERRARI – 296GT3"). Engine and electronics are identical between the
+ *  296 GT3 and 296 GT3 Evo, so the same aliases cover both versions.
+ *  Names have been normalised (case, spaces, underscores); multiple wording
+ *  variants are kept to maximise cold-match probability. Scale/unit
+ *  calibrations are NOT yet verified on a real Ferrari .ld file and must
+ *  be checked via the Channel Mapping panel before any calibration is
+ *  added to channelOverrides.ts. */
 const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ---- Vehicle dynamics ----
   speed: [
     eq("ground speed"), eq("groundspeed"),
     eq("vehicle speed"), eq("vcar"), eq("speed"),
+    eq("vspeed"), eq("v speed"),
     re(/^v\s*car$/i), inc("ground speed"), inc("vehicle speed"),
   ],
   rpm: [
     eq("ecu nmot"), eq("nmot"),
     eq("rpm"), eq("engine rpm"), eq("enginespeed"), eq("engine speed"),
+    eq("rpm engine"),
     inc("engine rpm"), inc("nmot"),
   ],
   throttle: [
@@ -170,6 +183,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   brakePressFront: [
     eq("log pbrake f"), eq("pbrake f"),
     eq("brake pressure front"), eq("brake press f"), eq("brake press front"),
+    eq("brake press fr"),
     eq("pbrake front"), re(/^brake\s*press(ure)?\s*(f|fr|front)$/i),
   ],
 
@@ -250,9 +264,19 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ("pcu state tc wet" 10 Hz). The intervention flag (ecu_B_tc_act) is NOT
   // logged, and the per-wheel "abs Slip *" channels are null for ~99.7 % of
   // samples — both are deliberately excluded everywhere in the app.
+  //
+  // Ferrari 296 GT3/Evo: the protocol exposes TC Stage1/Stage2/Stage3 as
+  // distinct driver-selectable levels. They map conceptually to the generic
+  // tcLat/tcMap configuration selector, so the aliases are added there.
+  // ABS SwPos ("abs swpos") is a separate ABS-knob position channel, but there
+  // is currently no dedicated "ABS configuration selector" logical key (absActive
+  // is the intervention flag). Do NOT map the ABS knob to absActive — that
+  // would resolve the wrong concept. A TODO is left here to verify the real
+  // Ferrari .ld naming before adding a dedicated ABS-config key.
   tcLat: [
     eq("stw rt01 tc lat"), eq("tc lat"),
     eq("tc map"), eq("tc position"), eq("tc level"),
+    eq("tc stage1"), eq("tc stage2"), eq("tc stage3"),
     eq("traction control"), inc("tc map"),
   ],
   tcLon: [
@@ -266,6 +290,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   tcMap: [
     eq("stw rt01 tc lat"), eq("tc lat"),
     eq("tc map"), eq("tc position"), eq("tc level"),
+    eq("tc stage1"), eq("tc stage2"), eq("tc stage3"),
     eq("traction control"), inc("tc map"),
   ],
 
@@ -292,12 +317,14 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ---- Engine extras ----
   engineCoolantTemp: [
     eq("ecu tmot"), eq("ecu tcool"), eq("tmot"), eq("tcool"), eq("twater"),
+    eq("engine coolant t"), eq("engine coolant temp"),
     eq("coolant temp"), eq("coolant temperature"),
     eq("water temp"), eq("water temperature"),
     inc("coolant temp"), inc("water temp"),
   ],
   engineOilTemp: [
     eq("ecu toil"), eq("toil"),
+    eq("engine oil temp"),
     eq("oil temp"), eq("oil temperature"),
     inc("oil temp"),
   ],
