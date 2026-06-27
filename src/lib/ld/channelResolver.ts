@@ -170,6 +170,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   brakePressFront: [
     eq("log pbrake f"), eq("pbrake f"),
     eq("brake pressure front"), eq("brake press f"), eq("brake press front"),
+    eq("brake press fr"),
     eq("pbrake front"), re(/^brake\s*press(ure)?\s*(f|fr|front)$/i),
   ],
 
