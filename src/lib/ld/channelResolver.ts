@@ -298,6 +298,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   ],
   engineOilTemp: [
     eq("ecu toil"), eq("toil"),
+    eq("engine oil temp"),
     eq("oil temp"), eq("oil temperature"),
     inc("oil temp"),
   ],
