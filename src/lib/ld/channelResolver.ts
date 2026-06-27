@@ -250,9 +250,19 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ("pcu state tc wet" 10 Hz). The intervention flag (ecu_B_tc_act) is NOT
   // logged, and the per-wheel "abs Slip *" channels are null for ~99.7 % of
   // samples — both are deliberately excluded everywhere in the app.
+  //
+  // Ferrari 296 GT3/Evo: the protocol exposes TC Stage1/Stage2/Stage3 as
+  // distinct driver-selectable levels. They map conceptually to the generic
+  // tcLat/tcMap configuration selector, so the aliases are added there.
+  // ABS SwPos ("abs swpos") is a separate ABS-knob position channel, but there
+  // is currently no dedicated "ABS configuration selector" logical key (absActive
+  // is the intervention flag). Do NOT map the ABS knob to absActive — that
+  // would resolve the wrong concept. A TODO is left here to verify the real
+  // Ferrari .ld naming before adding a dedicated ABS-config key.
   tcLat: [
     eq("stw rt01 tc lat"), eq("tc lat"),
     eq("tc map"), eq("tc position"), eq("tc level"),
+    eq("tc stage1"), eq("tc stage2"), eq("tc stage3"),
     eq("traction control"), inc("tc map"),
   ],
   tcLon: [
@@ -266,6 +276,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   tcMap: [
     eq("stw rt01 tc lat"), eq("tc lat"),
     eq("tc map"), eq("tc position"), eq("tc level"),
+    eq("tc stage1"), eq("tc stage2"), eq("tc stage3"),
     eq("traction control"), inc("tc map"),
   ],
 
