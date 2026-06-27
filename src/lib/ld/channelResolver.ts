@@ -292,6 +292,7 @@ const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ---- Engine extras ----
   engineCoolantTemp: [
     eq("ecu tmot"), eq("ecu tcool"), eq("tmot"), eq("tcool"), eq("twater"),
+    eq("engine coolant t"), eq("engine coolant temp"),
     eq("coolant temp"), eq("coolant temperature"),
     eq("water temp"), eq("water temperature"),
     inc("coolant temp"), inc("water temp"),
