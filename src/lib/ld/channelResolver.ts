@@ -138,17 +138,30 @@ const TYRE_TEMP_CORNERS  = corners(["tpms temp", "tyre temp", "tire temp"]);
 const TYRE_PRESS_CORNERS = corners(["tpms press", "tpms pressure", "tyre press", "tyre pressure", "tire pressure"]);
 
 /** The pattern catalogue. Order matters: more specific / higher-quality
- *  variants come FIRST so that they win over loose substring fallbacks. */
+ *  variants come FIRST so that they win over loose substring fallbacks.
+ *
+ *  ---- Ferrari 296 GT3 / 296 GT3 Evo aliases ----
+ *  The aliases below (grouped under the existing logical keys) are derived
+ *  from the AiM ECU integration document for the Ferrari 296 GT3 protocol
+ *  ("FERRARI – 296GT3"). Engine and electronics are identical between the
+ *  296 GT3 and 296 GT3 Evo, so the same aliases cover both versions.
+ *  Names have been normalised (case, spaces, underscores); multiple wording
+ *  variants are kept to maximise cold-match probability. Scale/unit
+ *  calibrations are NOT yet verified on a real Ferrari .ld file and must
+ *  be checked via the Channel Mapping panel before any calibration is
+ *  added to channelOverrides.ts. */
 const CATALOG: Record<LogicalKey, ChannelPattern[]> = {
   // ---- Vehicle dynamics ----
   speed: [
     eq("ground speed"), eq("groundspeed"),
     eq("vehicle speed"), eq("vcar"), eq("speed"),
+    eq("vspeed"), eq("v speed"),
     re(/^v\s*car$/i), inc("ground speed"), inc("vehicle speed"),
   ],
   rpm: [
     eq("ecu nmot"), eq("nmot"),
     eq("rpm"), eq("engine rpm"), eq("enginespeed"), eq("engine speed"),
+    eq("rpm engine"),
     inc("engine rpm"), inc("nmot"),
   ],
   throttle: [
